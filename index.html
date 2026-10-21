@@ -191,7 +191,10 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
       <h2>Fuming cycle result</h2>
       <div class="status" id="status" role="status" aria-live="polite">Calculating…</div>
     </div>
-    <div class="kpis solo" id="kpis"></div>
+    <div class="furnace-wrap">
+      <div class="furnace" id="furnace"></div>
+      <div class="kpis" id="kpis"></div>
+    </div>
     <div id="warn"></div>
 
     <section class="sec">
@@ -1240,6 +1243,28 @@ function runNow(){
 
 function render(){
   const r=lastRes, lim=lastLim, s=r.summary, st=r.steps, last=st[st.length-1];
+  const slagOutT = E.phaseMass(r.final,'slag') / 1000;
+  document.getElementById('furnace').innerHTML = `<svg viewBox="0 0 900 190" role="img" aria-label="Slag fuming furnace process flow: ${F(s.fume_kg/1000,2)} tonnes of fume to baghouse">
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ink)"/></marker></defs>
+    <g fill="none" stroke="var(--ink)" stroke-width="2">
+      <path d="M330 44 L570 44 L540 154 L360 154 Z" fill="var(--soft)"/>
+      <path d="M365 82 Q450 58 535 82 L522 132 Q450 149 378 132 Z" fill="var(--slag)" stroke="var(--zn)"/>
+      <path d="M120 72 H340" marker-end="url(#arrow)"/>
+      <path d="M120 124 H360" marker-end="url(#arrow)"/>
+      <path d="M450 12 V47" marker-end="url(#arrow)"/>
+      <path d="M555 70 H790" marker-end="url(#arrow)"/>
+      <path d="M450 154 V181" marker-end="url(#arrow)"/>
+    </g>
+    <g font-size="14">
+      <text x="28" y="64" font-weight="600">Coal</text><text x="28" y="82">${F(s.coal_kg/1000,2)} t</text>
+      <text x="28" y="116" font-weight="600">Blast air</text><text x="28" y="134">${F0(cfg.air_Nm3_min*cfg.cycle_min)} Nm³</text>
+      <text x="450" y="10" text-anchor="middle" font-weight="600">Aluminium / dross ${F(s.al_kg/1000,2)} t</text>
+      <text x="450" y="104" text-anchor="middle" font-size="18" font-weight="600">Reaction-zone Gibbs minimisation</text>
+      <text x="450" y="124" text-anchor="middle">${F0(st.length)} time steps at ${F0(cfg.T_C)} °C</text>
+      <text x="608" y="50" font-weight="600">Fume to baghouse</text><text x="608" y="68" font-size="18">${F(s.fume_kg/1000,2)} t</text>
+      <text x="450" y="188" text-anchor="middle" font-weight="600">Discard slag ${F(slagOutT,2)} t</text>
+    </g>
+  </svg>`;
   const kp = [
     [F(s.fume_kg/1000,2)+' t','Fume (ZnO, PbO, CdO)'],[F(s.Zn_rec,1)+'%','Zinc fumed'],[F(s.Pb_rec,1)+'%','Lead fumed'],[F(s.Cd_rec,1)+'%','Cadmium fumed'],
     [F(last.Zn_slag,2)+'%','Zinc in discard slag'],[F0(s.coal_kg/cfg.slag_t)+' kg','Coal per t slag'],
