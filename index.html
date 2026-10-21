@@ -208,6 +208,7 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
 
     <div class="tabs" role="tablist" id="tabs">
       <button class="tab" role="tab" aria-selected="true" data-tab="steps">Step results</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="slag">Slag composition</button>
       <button class="tab" role="tab" aria-selected="false" data-tab="charts">Charts</button>
       <button class="tab" role="tab" aria-selected="false" data-tab="phases">Products</button>
       <button class="tab" role="tab" aria-selected="false" data-tab="eq">Equilibrium detail</button>
@@ -218,6 +219,7 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
       <button class="tab" role="tab" aria-selected="false" data-tab="about">How it works</button>
     </div>
     <section class="panel" id="p-steps"></section>
+    <section class="panel" id="p-slag" hidden></section>
     <section class="panel" id="p-charts" hidden><div class="charts" id="charts" style="margin-top:0"></div><label class="chk limit-toggle"><input type="checkbox" id="showLimit" checked> Show the equilibrium limit (whole bath equilibrated in every step)</label></section>
     <section class="panel" id="p-phases" hidden></section>
     <section class="panel" id="p-eq" hidden></section>
@@ -572,6 +574,35 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
 
   const MWOX = { FeO: 71.844, Fe3O4: 231.533, Fe2O3: 159.687, SiO2: 60.083, CaO: 56.077, Al2O3: 101.961, MgO: 40.304, ZnO: 81.379, PbO: 223.199, Cu2O: 143.091, Cu2S: 159.152, FeS: 87.905, CdO: 128.413 };
   const HF298 = { 'H2O(l)': -285830, SiO2: -910700, Al2O3: -1675700, CaO: -635090, Fe2O3: -824200, ZnO: -350460, PbO: -219000, CdO: -258350 };
+  const SLAG_OXIDES = [
+    { key: 'FeO', sp: 'slag:FeO', factor: MWOX.FeO },
+    { key: 'Fe2O3', sp: 'slag:FeO1.5', factor: MWOX.Fe2O3 / 2 },
+    { key: 'SiO2', sp: 'slag:SiO2', factor: MWOX.SiO2 },
+    { key: 'CaO', sp: 'slag:CaO', factor: MWOX.CaO },
+    { key: 'Al2O3', sp: 'slag:AlO1.5', factor: MWOX.Al2O3 / 2 },
+    { key: 'MgO', sp: 'slag:MgO', factor: MWOX.MgO },
+    { key: 'ZnO', sp: 'slag:ZnO', factor: MWOX.ZnO },
+    { key: 'PbO', sp: 'slag:PbO', factor: MWOX.PbO },
+    { key: 'Cu2O', sp: 'slag:CuO0.5', factor: MWOX.Cu2O / 2 },
+    { key: 'CdO', sp: 'slag:CdO', factor: MWOX.CdO }
+  ];
+
+  // Post-step slag-solution composition on an oxide-equivalent basis.
+  // Separate matte, metal, gas, char, magnetite and spinel phases are excluded.
+  function slagComposition(n) {
+    const mass_kg = phaseMass(n, 'slag');
+    const oxide_kg = {}, oxide_wt = {};
+    let sum_wt = 0;
+    for (const oxide of SLAG_OXIDES) {
+      const kg = n[SP[oxide.sp].i] * oxide.factor;
+      const wt = mass_kg > 0 ? 100 * kg / mass_kg : 0;
+      oxide_kg[oxide.key] = kg;
+      oxide_wt[oxide.key] = wt;
+      sum_wt += wt;
+    }
+    const fe2 = n[SP['slag:FeO'].i], fe3 = n[SP['slag:FeO1.5'].i];
+    return { mass_kg, oxide_kg, oxide_wt, sum_wt, fe3_fraction: fe2 + fe3 > 0 ? 100 * fe3 / (fe2 + fe3) : 0 };
+  }
 
   function slagToSpecies(massKg, comp) {
     const n = new Float64Array(NS);
@@ -615,7 +646,7 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
       else idx = Array.from({ length: steps }, (_, k) => k);
       idx.forEach(k => { alSched[k] = cfg.al_kg / idx.length; });
     }
-    const res = { steps: [], T, fRZ, dt };
+    const res = { steps: [], T, fRZ, dt, initialSlag: slagComposition(bulk) };
     let cumZn = 0, cumPb = 0, cumCd = 0, cumSi = 0, Qtot = 0, sensTot = 0, abHeat = 0, abO2 = 0, gasNm3 = 0, unconv = 0;
     const gasTot = new Float64Array(NS);
     let warm = null;
@@ -670,7 +701,7 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
       for (let i = 0; i < NS; i++) { if (SPECIES[i].ph === 'gas') continue; newBulk[i] = bulk[i] * (1 - fRZ) + ne[i]; }
       bulk = newBulk;
       const lnpO2 = 2 * r.pi[ELEMENTS.indexOf('O')] - gv.g[SP['gas:O2'].i] + Math.log(P);
-      const slagMass = phaseMass(bulk, 'slag');
+      const slagComp = slagComposition(bulk), slagMass = slagComp.mass_kg;
       Qtot += Q / 1000; sensTot += sens / 1e6; abHeat += ab / 1000; abO2 += Math.max(0, O2need); gasNm3 += Ng * 22.414;
       res.steps.push({
         t: (s + 1) * dt, coal: coalStep, al: alSched[s], converged: r.converged, iter: r.iter,
@@ -682,7 +713,7 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
         cumZnO_kg: cumZn * MWOX.ZnO, cumPbO_kg: cumPb * MWOX.PbO,
         pZn: Zn / Ng * P, pPb: Pb / Ng * P, COCO2: gas.CO / Math.max(gas.CO2, 1e-30), H2H2O: gas.H2 / Math.max(gas.H2O, 1e-30),
         log_pO2: lnpO2 / Math.LN10, gas_Nm3: Ng * 22.414, Q_MJ: Q, sens_MJ: sens / 1000, ab_MJ: ab,
-        metal_kg: phaseMass(bulk, 'alloy') + phaseMass(bulk, 'bullion'), matte_kg: phaseMass(bulk, 'matte'),
+        metal_kg: phaseMass(bulk, 'alloy') + phaseMass(bulk, 'bullion'), matte_kg: phaseMass(bulk, 'matte'), slagComp,
         eq: { n: ne, n0: n0.slice(), active: r.active, pi: r.pi, Hin_kJ: Hin, Hout_kJ: Hout, fRZ }
       });
       warm = ne;
@@ -794,7 +825,7 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
     return Object.keys(STD).map(k => { const r = stdHG(k, T); return { key: k, G: r.G / 1000, H: r.H / 1000, src: STD[k].src }; });
   }
 
-  const API = { R, AW, ELEMENTS, PHASES, SPECIES, SP, STD, DEFAULT_GAMMA, MWOX, stdHG, gVector, equilibrate, simulate, reactionTable, stdTable, slagToSpecies, phaseMass, elementIn, OFFSET };
+  const API = { R, AW, ELEMENTS, PHASES, SPECIES, SP, STD, DEFAULT_GAMMA, MWOX, SLAG_OXIDES, stdHG, gVector, equilibrate, simulate, reactionTable, stdTable, slagToSpecies, slagComposition, phaseMass, elementIn, OFFSET };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.FumeEngine = API;
 })(this);
 
@@ -1158,7 +1189,7 @@ function render(){
   const S4=[{name:'CO/CO₂',short:'CO/CO₂',color:'var(--gas)',pts:r.steps.map(x=>[+x.t.toFixed(1),x.COCO2])},{name:'Zn in gas ×100, atm',short:'pZn×100',color:'var(--zn)',pts:r.steps.map(x=>[+x.t.toFixed(1),x.pZn*100])}];
   drawChart(document.getElementById('c4'),{title:'Reaction-zone gas',xlab:'Blowing time, min',xname:'t',series:S4,ymin:0,fv:v=>F(v,2)});
 
-  renderBalance(); renderLive(); renderSteps(); renderPhases(); renderEq(); renderRx(); renderData();
+  renderBalance(); renderLive(); renderSteps(); renderSlagHistory(); renderPhases(); renderEq(); renderRx(); renderData();
 }
 
 // ---------- MathML helpers ----------
@@ -1367,6 +1398,33 @@ function renderSteps(){
   document.getElementById('p-steps').innerHTML = `<p class="small" style="margin-top:0">Each step equilibrates ${F(r.fRZ*100,1)}% of the bath with ${F(r.dt,1)} min of coal, air and aluminium, then removes the gas. Slag columns are bulk bath values after the step; gas columns are the reaction-zone gas.</p>
   <div class="scroll"><table class="data"><thead><tr><th>Time, min</th><th>Coal, kg</th><th>Al, kg</th><th>Zn, %</th><th>Pb, %</th><th>Cu, %</th><th>Fe³⁺/Fe²⁺</th><th>p<sub>Zn</sub>, atm</th><th>CO/CO₂</th><th>log p<sub>O₂</sub></th><th>ZnO fume, kg</th><th>PbO fume, kg</th><th>Heat surplus, MJ</th><th>Metal, kg</th></tr></thead><tbody>${rows}</tbody></table></div>
   <p class="small">Heat surplus is the enthalpy released in the reaction zone with coal, air and aluminium entering at 25 °C and products leaving at bath temperature. A negative value means the zone needs heat and the bath would cool.</p>`;
+}
+
+function slagHistoryRows(){
+  const r=lastRes;
+  return [{step:0,t:0,converged:true,iter:null,slagComp:r.initialSlag}].concat(r.steps.map((x,i)=>({step:i+1,t:x.t,converged:x.converged,iter:x.iter,slagComp:x.slagComp})));
+}
+function renderSlagHistory(){
+  const el=document.getElementById('p-slag'), rows=slagHistoryRows(), keys=E.SLAG_OXIDES.map(x=>x.key);
+  const labels={FeO:'FeO',Fe2O3:'Fe₂O₃ eq.',SiO2:'SiO₂',CaO:'CaO',Al2O3:'Al₂O₃',MgO:'MgO',ZnO:'ZnO',PbO:'PbO',Cu2O:'Cu₂O',CdO:'CdO'};
+  const colors={FeO:'var(--fe)',Fe2O3:'#B45F8D',SiO2:'#6F7FA8',CaO:'#6D8C42',Al2O3:'#8B6BB3',MgO:'#5F8F8A',ZnO:'var(--zn)',PbO:'var(--pb)',Cu2O:'var(--cu)',CdO:'#7C8581'};
+  const series = k => ({name:labels[k],short:labels[k],color:colors[k],pts:rows.map(x=>[+x.t.toFixed(3),x.slagComp.oxide_wt[k]])});
+  const body=rows.map(x=>`<tr><td>${x.step===0?'Feed':x.step}</td><td>${F(x.t,1)}</td><td>${F(x.slagComp.mass_kg/1000,3)}</td>${keys.map(k=>`<td>${F(x.slagComp.oxide_wt[k],3)}</td>`).join('')}<td>${F(x.slagComp.sum_wt,3)}</td><td>${F(x.slagComp.fe3_fraction,2)}</td><td>${x.step===0?'—':F0(x.iter)}</td><td>${x.step===0?'—':(x.converged?'Yes':'No')}</td></tr>`).join('');
+  el.innerHTML = `<div class="row" style="justify-content:space-between;align-items:flex-start">
+    <div><h3>Slag composition at every time step</h3><div class="small">Post-step slag-solution composition, oxide-equivalent wt%. Separate matte, metal, gas, char, magnetite and spinel phases are excluded. Feed Fe₃O₄ is represented as FeO + Fe₂O₃ equivalents.</div></div>
+    <button class="btn secondary" id="slagCsv" type="button">Download CSV</button>
+  </div>
+  <div class="charts" id="slagCharts" style="margin:0 0 16px"><div class="chart" id="slagMajor"></div><div class="chart" id="slagMinor"></div></div>
+  <div class="scroll"><table class="data"><thead><tr><th>Step</th><th>Time, min</th><th>Slag, t</th>${keys.map(k=>`<th>${labels[k]}, wt%</th>`).join('')}<th>Sum, wt%</th><th>Fe³⁺/ΣFe, %</th><th>Newton iter.</th><th>Converged</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  drawChart(document.getElementById('slagMajor'),{title:'Major slag oxides over time',xlab:'Blowing time, min',xname:'t',series:['FeO','Fe2O3','SiO2','CaO','Al2O3','MgO'].map(series),ymin:0,fv:v=>F(v,2)+'%'});
+  drawChart(document.getElementById('slagMinor'),{title:'Recoverable and minor oxides over time',xlab:'Blowing time, min',xname:'t',series:['ZnO','PbO','Cu2O','CdO'].map(series),ymin:0,fv:v=>F(v,3)+'%'});
+  document.getElementById('slagCsv').addEventListener('click',downloadSlagHistory);
+}
+function downloadSlagHistory(){
+  const keys=E.SLAG_OXIDES.map(x=>x.key), rows=slagHistoryRows();
+  const csv=[['step','time_min','slag_t'].concat(keys.map(k=>k+'_wt_pct'),['sum_wt_pct','Fe3_fraction_pct','newton_iterations','converged']).join(',')]
+    .concat(rows.map(x=>[x.step,x.t,x.slagComp.mass_kg/1000].concat(keys.map(k=>x.slagComp.oxide_wt[k]),[x.slagComp.sum_wt,x.slagComp.fe3_fraction,x.iter==null?'':x.iter,x.step===0?'feed':x.converged]).join(','))).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='slag-composition-history.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),0);
 }
 
 function compTable(rows, cols){ return `<table class="data"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`; }
