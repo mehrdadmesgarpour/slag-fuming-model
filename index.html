@@ -240,6 +240,15 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
   const R = 8.314462618;
   const NASA = {"C(gr)":{"r":[200.0,1000.0,5000.0],"c":[[-0.310872072,0.00440353686,1.90394118e-06,-6.38546966e-09,2.98964248e-12,-108.650794,1.11382953],[1.45571829,0.00171702216,-6.97562786e-07,1.35277032e-10,-9.67590652e-15,-695.138814,-8.52583033]]},"Fe(c)":{"r":[1184.0,1665.0],"c":[[61.010999,-0.160945061,0.000168369493,-7.74563702e-08,1.3309129e-11,-16533.5454,-313.710668]]},"Fe(d)":{"r":[1665.0,1809.0],"c":[[-435.904698,0.768489448,-0.000446898892,8.67070913e-08,0.0,187925.534,2450.57619]]},"Fe(L)":{"r":[1809.0,6000.0],"c":[[5.53538332,0.0,0.0,0.0,0.0,-1274.28941,-29.4772271]]},"FeO(L)":{"r":[1650.0,5000.0],"c":[[8.2022482,0.0,0.0,0.0,0.0,-33848.615,-40.079129]]},"Fe3O4(s)":{"r":[300.0,1000.0,5000.0],"c":[[36.198148,-0.17437976,0.00052475673,-5.4238219e-07,1.7996202e-10,-141387.3,-155.56683],[24.13372,4.1592226e-05,-2.6331492e-08,6.6035094e-12,-5.692468e-16,-141210.52,-120.06412]]},"Fe2O3(s)":{"r":[300.0,1000.0,2500.0],"c":[[-7.7037843,0.13647471,-0.00032905655,3.8150478e-07,-1.6310285e-10,-100800.76,25.292085],[40.49753,-0.046131596,3.1826406e-05,-8.9226331e-09,8.4655417e-13,-113176.27,-216.35088]]},"SiO2(hqz)":{"r":[847.0,1000.0,1696.0],"c":[[7.11787621,0.00113819527,3.69734234e-08,0.0,0.0,-111794.194,-36.3708064],[7.23537106,0.000761842227,4.89502294e-07,-2.35754591e-10,4.20839131e-14,-111823.834,-36.9642796]]},"SiO2(L)":{"r":[1696.0,6000.0],"c":[[10.3160657,0.0,0.0,0.0,0.0,-114600.563,-57.6266603]]},"CaO(s)":{"r":[300.0,1000.0,3200.0],"c":[[1.6937688,0.018149663,-2.8372609e-05,2.0513539e-08,-5.5175768e-12,-77482.769,-9.3710081],[5.6557517,0.0010165439,-2.5576899e-07,5.4514395e-11,-4.257995e-15,-78238.381,-28.223372]]},"AL2O3(a)":{"r":[300.0,1000.0,2327.0],"c":[[-4.9138309,0.079398443,-0.00013237918,1.044675e-07,-3.156633e-11,-202626.22,15.478073],[11.833666,0.0037708878,-1.7863191e-07,-5.6008807e-10,1.4076825e-13,-205711.31,-63.599835]]},"MgO(s)":{"r":[300.0,1000.0,3105.0],"c":[[-0.45403953,0.027873269,-4.9062247e-05,4.0474151e-08,-1.2670344e-11,-73057.948,-0.6355202],[5.0448681,0.0016898201,-7.5617695e-07,2.0286893e-10,-2.0591271e-14,-74029.285,-26.328892]]},"Pb(L)":{"r":[600.65,1000.0,3600.0],"c":[[3.40679935,0.00203221927,-4.1741747e-06,3.08397022e-09,-8.16531438e-13,-592.027769,-11.3377955],[4.18191355,-0.000984150979,3.55339809e-07,-1.75808349e-11,-3.23884419e-15,-756.065769,-15.1099545]]},"PbO(yw)":{"r":[762.0,1000.0,1159.0],"c":[[4.2073253,0.0052176481,-3.8613587e-06,1.3840146e-09,0.0,-27665.601,-17.064476],[5.1124626,0.0020394489,-2.0428228e-07,0.0,0.0,-27854.661,-21.505944]]},"PbO(L)":{"r":[1159.0,5000.0],"c":[[7.8176698,0.0,0.0,0.0,0.0,-26656.533,-35.716934]]},"PbS(s)":{"r":[300.0,1000.0,1386.5],"c":[[5.516097,0.0017196688,-1.2658604e-06,1.2505685e-09,-4.6278508e-13,-13538.18,-20.909267],[4.8695408,0.0025509848,-3.8042879e-07,-5.4814638e-10,2.6573819e-13,-13298.452,-17.299606]]},"PbS(L)":{"r":[1386.5,5000.0],"c":[[8.0516715,0.0,0.0,0.0,0.0,-13566.06,-35.757796]]},"Cu(cr)":{"r":[200.0,1000.0,1358.0],"c":[[1.76672074,0.00734699432,-1.5471296e-05,1.50539591e-08,-5.24861335e-12,-743.882087,-7.70454044],[3.4200891,-0.00161201394,3.05145917e-06,-2.11162788e-09,6.99858397e-13,-990.295636,-15.1932294]]},"Cu(L)":{"r":[1358.0,6000.0],"c":[[3.94491076,0.0,0.0,0.0,0.0,-210.634669,-18.3585676]]},"Cu2O(s)":{"r":[300.0,1000.0,1516.72],"c":[[3.3832466,0.022954176,-3.9542304e-05,3.4020401e-08,-1.1043809e-11,-22273.157,-13.530713],[14.755641,-0.015876657,1.4971193e-05,-4.4840264e-09,4.0556005e-13,-25065.068,-70.541877]]},"Cu2O(L)":{"r":[1516.72,5000.0],"c":[[12.01712,0.0,0.0,0.0,0.0,-19252.387,-56.886866]]},"FeS(c)":{"r":[598.0,1000.0,1463.0],"c":[[9.3724176,0.00094162059,-1.5829864e-05,1.8380881e-08,-5.7707067e-12,-14581.685,-45.141516],[-2.6830483,0.036765104,-5.2182274e-05,3.160717e-08,-6.4126041e-12,-11498.684,16.239124]]},"FeS(L)":{"r":[1463.0,5000.0],"c":[[7.5232806,0.0,0.0,0.0,0.0,-10164.237,-31.97093]]},"AL(L)":{"r":[933.61,6000.0],"c":[[3.81862551,0.0,0.0,0.0,0.0,-94.9651808,-17.5229704]]},"Si(cr)":{"r":[200.0,1000.0,1690.0],"c":[[-0.129176912,0.0147203139,-2.7651016e-05,2.41878251e-08,-7.93452912e-12,-415.516417,-0.359570008],[1.75547382,0.00317285497,-2.78236402e-06,1.26458065e-09,-2.17128464e-13,-628.657363,-8.55341177]]},"Si(L)":{"r":[1690.0,6000.0],"c":[[3.27138941,0.0,0.0,0.0,0.0,4882.86795,-13.2665477]]},"MgAL2O4(s)":{"r":[300.0,1000.0,2408.0],"c":[[-6.3912625,0.1171886,-0.00021325178,1.8277405e-07,-5.8831991e-11,-278271.41,20.132701],[14.697679,0.0093304797,-3.5522598e-06,1.155053e-09,-1.4334531e-13,-281664.11,-76.668685]]},"Zn(L)":{"r":[692.73,6000.0],"c":[[3.77653043,0.0,0.0,0.0,0.0,-431.695298,-15.6708437]]},"CO(g)":{"r":[200.0,1000.0,6000.0],"c":[[3.57953347,-0.00061035368,1.01681433e-06,9.07005884e-10,-9.04424499e-13,-14344.086,3.50840928],[3.04848583,0.00135172818,-4.85794075e-07,7.88536486e-11,-4.69807489e-15,-14266.1171,6.0170979]]},"CO2(g)":{"r":[200.0,1000.0,6000.0],"c":[[2.35677352,0.00898459677,-7.12356269e-06,2.45919022e-09,-1.43699548e-13,-48371.9697,9.90105222],[4.63659493,0.00274131991,-9.95828531e-07,1.60373011e-10,-9.16103468e-15,-49024.9341,-1.93534855]]},"H2(g)":{"r":[200.0,1000.0,6000.0],"c":[[2.34433112,0.00798052075,-1.9478151e-05,2.01572094e-08,-7.37611761e-12,-917.935173,0.683010238],[2.93286579,0.000826607967,-1.46402335e-07,1.54100359e-11,-6.88804432e-16,-813.065597,-1.02432887]]},"H2O(g)":{"r":[200.0,1000.0,6000.0],"c":[[4.19864056,-0.0020364341,6.52040211e-06,-5.48797062e-09,1.77197817e-12,-30293.7267,-0.849032208],[2.67703787,0.00297318329,-7.7376969e-07,9.44336689e-11,-4.26900959e-15,-29885.8938,6.88255571]]},"CH4(g)":{"r":[200.0,1000.0,6000.0],"c":[[5.14987613,-0.0136709788,4.91800599e-05,-4.84743026e-08,1.66693956e-11,-10246.6476,-4.64130376],[1.63552643,0.0100842795,-3.36916254e-06,5.34958667e-10,-3.15518833e-14,-10005.6455,9.99313326]]},"N2(g)":{"r":[200.0,1000.0,6000.0],"c":[[3.53100528,-0.000123660987,-5.02999437e-07,2.43530612e-09,-1.40881235e-12,-1046.97628,2.96747468],[2.95257626,0.00139690057,-4.92631691e-07,7.86010367e-11,-4.60755321e-15,-923.948645,5.87189252]]},"O2(g)":{"r":[200.0,1000.0,6000.0],"c":[[3.78245636,-0.00299673415,9.847302e-06,-9.68129508e-09,3.24372836e-12,-1063.94356,3.65767573],[3.66096083,0.000656365523,-1.41149485e-07,2.05797658e-11,-1.29913248e-15,-1215.97725,3.41536184]]},"Zn(g)":{"r":[200.0,1000.0,6000.0],"c":[[2.5,-4.89383187e-12,1.38012101e-14,-1.58679678e-17,6.38498776e-21,14938.0507,5.11886101],[2.51233674,-2.9285943e-05,2.43130241e-08,-8.39058754e-12,1.02676892e-15,14934.1449,5.05331145]]},"Pb(g)":{"r":[200.0,1000.0,6000.0],"c":[[2.50229005,-2.44053643e-05,9.17082578e-08,-1.42817771e-10,7.83762196e-14,22731.4919,6.84009322],[4.16342379,-0.00349637723,2.2826317e-06,-4.76749242e-10,3.222238e-14,22168.7499,-2.13525305]]},"PbO(g)":{"r":[300.0,1000.0,5000.0],"c":[[2.6539867,0.0066644115,-1.0312363e-05,7.6663259e-09,-2.2173864e-12,7443.7513,12.156713],[4.1136242,0.00053778857,-2.3763394e-07,4.2425688e-11,-1.2294044e-15,7151.926,5.15041319]]},"PbS(g)":{"r":[300.0,1000.0,5000.0],"c":[[3.4774532,0.0039700295,-6.1096689e-06,4.3008682e-09,-1.1311549e-12,14684.751,9.47780941],[4.0911522,0.00083885359,-5.7157207e-07,1.6160476e-10,-1.2511897e-14,14601.695,6.70074801]]},"SO2(g)":{"r":[300.0,1000.0,5000.0],"c":[[3.2665338,0.0053237902,6.8437552e-07,-5.2810047e-09,2.5590454e-12,-36908.148,9.66465108],[5.2451364,0.0019704204,-8.0375769e-07,1.5149969e-10,-1.0558004e-14,-37558.227,-1.07404892]]},"SO3(g)":{"r":[300.0,1000.0,5000.0],"c":[[2.5780385,0.014556335,-9.1764173e-06,-7.9203022e-10,1.9709473e-12,-48931.753,12.2651384],[7.0757376,0.0031763387,-1.353576e-06,2.5630912e-10,-1.7936044e-14,-50211.376,-11.1875176]]},"S2(g)":{"r":[300.0,1000.0,5000.0],"c":[[2.8585754,0.0051758355,-6.5493434e-06,3.3998643e-09,-4.0156766e-13,14412.402,9.89127849],[3.9886069,0.00055775051,-5.0189278e-08,-1.5470319e-11,2.6661771e-15,14198.015,4.49119159]]},"H2S(g)":{"r":[300.0,1000.0,5000.0],"c":[[3.9323476,-0.00050260905,4.5928473e-06,-3.1807214e-09,6.6497561e-13,-3650.5359,2.3157905],[2.7452199,0.0040434607,-1.538451e-06,2.7520249e-10,-1.8592095e-14,-3419.9444,8.0546745]]},"COS(g)":{"r":[300.0,1000.0,5000.0],"c":[[2.4625321,0.011947992,-1.379437e-05,8.0707736e-09,-1.8327653e-12,-17803.987,10.8058688],[5.2392,0.0024100584,-9.6064522e-07,1.7778347e-10,-1.2235704e-14,-18480.455,-3.07773889]]},"SiO(g)":{"r":[300.0,1000.0,5000.0],"c":[[3.2528276,0.00041823126,3.7806202e-06,-5.1024483e-09,1.9471317e-12,-13090.34,6.66174329],[3.7478835,0.00081991943,-3.2525396e-07,5.7324962e-11,-3.5108944e-15,-13317.43,3.66100339]]}};
 
+  // Additional high-temperature species used by the engineering coal/dross model.
+  // Coefficients are NASA7 values from the NASA/GRI data distributed with Cantera 3.2.
+  Object.assign(NASA, {
+    'NH3(g)': { r: [200.0, 1000.0, 6000.0], c: [[4.2860274, -4.660523e-3, 2.1718513e-5, -2.2808887e-8, 8.2638046e-12, -6741.7285, -0.62537277], [2.6344521, 5.666256e-3, -1.7278676e-6, 2.3867161e-10, -1.2578786e-14, -6544.6958, 6.5662928]] },
+    'HCN(g)': { r: [200.0, 1000.0, 6000.0], c: [[2.2589886, 1.005117e-2, -1.3351763e-5, 1.0092349e-8, -3.0089028e-12, 1.4712633e4, 8.9164419], [3.8022392, 3.1464228e-3, -1.0632185e-6, 1.6619757e-10, -9.799757e-15, 1.4407292e4, 1.5754601]] },
+    'ALN(s)': { r: [300.0, 1000.0, 3000.0], c: [[-1.5450031, 2.7632249e-2, -4.3539464e-5, 3.3092666e-8, -9.8010524e-12, -3.8688614e4, 4.6492822], [4.0841212, 3.1881496e-3, -1.9029765e-6, 5.2523411e-10, -5.5133066e-14, -3.9781843e4, -22.190145]] },
+    'Al2S3(L)': { r: [1373.0, 6000.0], c: [[19.24346714, 0, 0, 0, 0, -81140.2333, -97.22848599]] }
+  });
+
   const AW = { Fe: 55.845, Si: 28.0855, Ca: 40.078, Al: 26.9815, Mg: 24.305, Zn: 65.38, Pb: 207.2, Cu: 63.546, Cd: 112.414, S: 32.06, C: 12.011, H: 1.008, O: 15.999, N: 14.007 };
   const ELEMENTS = ['Fe', 'Si', 'Ca', 'Al', 'Mg', 'Zn', 'Pb', 'Cu', 'Cd', 'S', 'C', 'H', 'O', 'N'];
 
@@ -273,6 +282,7 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
   const STD = {
     'CO(g)': { n: ['CO(g)'], src: 'NASA' }, 'CO2(g)': { n: ['CO2(g)'], src: 'NASA' }, 'H2(g)': { n: ['H2(g)'], src: 'NASA' },
     'H2O(g)': { n: ['H2O(g)'], src: 'NASA' }, 'CH4(g)': { n: ['CH4(g)'], src: 'NASA' }, 'N2(g)': { n: ['N2(g)'], src: 'NASA' },
+    'NH3(g)': { n: ['NH3(g)'], src: 'GRI-Mech 3.0 / NASA7' }, 'HCN(g)': { n: ['HCN(g)'], src: 'GRI-Mech 3.0 / NASA7' },
     'O2(g)': { n: ['O2(g)'], src: 'NASA' }, 'Zn(g)': { n: ['Zn(g)'], src: 'NASA' }, 'Pb(g)': { n: ['Pb(g)'], src: 'NASA' },
     'PbO(g)': { n: ['PbO(g)'], src: 'NASA' }, 'PbS(g)': { n: ['PbS(g)'], src: 'NASA' }, 'SO2(g)': { n: ['SO2(g)'], src: 'NASA' },
     'SO3(g)': { n: ['SO3(g)'], src: 'NASA' }, 'S2(g)': { n: ['S2(g)'], src: 'NASA' }, 'H2S(g)': { n: ['H2S(g)'], src: 'NASA' },
@@ -290,6 +300,9 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
     'FeS(l)': { n: ['FeS(L)'], ex: true, src: 'NASA (liquid, extrapolated below 1463 K)' },
     'PbS(l)': { n: ['PbS(L)'], ex: true, src: 'NASA (liquid, extrapolated below 1387 K)' },
     'MgAl2O4(s)': { n: ['MgAL2O4(s)'], src: 'NASA' },
+    'AlN(s)': { n: ['ALN(s)'], ex: true, src: 'NASA Glenn / JANAF J12/79' },
+    'Al4C3(s)': { mk: { Hf: -206900, S0: 88.9491929, segs: [[298.15, 2500, 148.739152346, 0.0334598093177, -3727878.75595, 0]] }, src: 'NASA CEA / Gurvich 1996, Al4C3(cr), 300–2500 K' },
+    'Al2S3(l)': { n: ['Al2S3(L)'], src: 'NASA CEA / Gurvich 1996, liquid Al2S3, 1373–6000 K' },
     'ZnO(s)': { mk: { Hf: -350460, S0: 43.65, segs: [[298.15, 4000, 45.338, 7.289e-3, -5.732e5, 0]] }, src: 'CODATA 298 K + Cp; within 1.3 kJ of SUPCRT16 zincite' },
     'ZnS(s)': { mk: { Hf: -205980, S0: 57.7, segs: [[298.15, 4000, 49.25, 5.27e-3, -4.85e5, 0]] }, src: '298 K data + Cp; within 0.6 kJ of SUPCRT16 sphalerite' },
     'Cu2S': { mk: { Hf: -79500, S0: 120.9, segs: [[298.15, 376, 81.6, 0, 0, 0], [376, 708, 97.3, 0, 0, 3850], [708, 1403, 85.0, 0, 0, 1170], [1403, 5000, 89.7, 0, 0, 10900]] }, corr: [-3972.7, 7.6790], src: 'CRC 298 K data + Cp, shifted +6.7 to +9.3 kJ to the Cu–S Calphad assessment (Lee et al. 2007)' },
@@ -332,12 +345,16 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
     { id: 'C(gr)', label: 'Graphite / char', type: 'pure' },
     { id: 'Fe3O4(s)', label: 'Magnetite (solid)', type: 'pure' },
     { id: 'MgAl2O4(s)', label: 'Spinel MgAl₂O₄', type: 'pure' },
-    { id: 'ZnAl2O4(s)', label: 'Gahnite ZnAl₂O₄', type: 'pure' }
+    { id: 'ZnAl2O4(s)', label: 'Gahnite ZnAl₂O₄', type: 'pure' },
+    { id: 'AlN(s)', label: 'Aluminium nitride (dross)', type: 'pure' },
+    { id: 'Al4C3(s)', label: 'Aluminium carbide (dross)', type: 'pure' },
+    { id: 'Al2S3(l)', label: 'Aluminium sulfide liquid (dross)', type: 'pure' }
   ];
   // sc = multiplier on the standard-state Gibbs energy (e.g. FeO1.5 = ½ Fe2O3)
   const SPECIES = [
     ['CO', 'gas', { C: 1, O: 1 }, 'CO(g)'], ['CO2', 'gas', { C: 1, O: 2 }, 'CO2(g)'], ['H2', 'gas', { H: 2 }, 'H2(g)'],
     ['H2O', 'gas', { H: 2, O: 1 }, 'H2O(g)'], ['CH4', 'gas', { C: 1, H: 4 }, 'CH4(g)'], ['N2', 'gas', { N: 2 }, 'N2(g)'],
+    ['NH3', 'gas', { N: 1, H: 3 }, 'NH3(g)'], ['HCN', 'gas', { H: 1, C: 1, N: 1 }, 'HCN(g)'],
     ['O2', 'gas', { O: 2 }, 'O2(g)'], ['Zn(g)', 'gas', { Zn: 1 }, 'Zn(g)'], ['Pb(g)', 'gas', { Pb: 1 }, 'Pb(g)'],
     ['PbO(g)', 'gas', { Pb: 1, O: 1 }, 'PbO(g)'], ['PbS(g)', 'gas', { Pb: 1, S: 1 }, 'PbS(g)'], ['Cd(g)', 'gas', { Cd: 1 }, 'Cd(g)'],
     ['SO2', 'gas', { S: 1, O: 2 }, 'SO2(g)'], ['SO3', 'gas', { S: 1, O: 3 }, 'SO3(g)'], ['S2', 'gas', { S: 2 }, 'S2(g)'],
@@ -353,7 +370,9 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
     ['FeS', 'matte', { Fe: 1, S: 1 }, 'FeS(l)'], ['Cu2S', 'matte', { Cu: 2, S: 1 }, 'Cu2S'],
     ['PbS', 'matte', { Pb: 1, S: 1 }, 'PbS(l)'], ['ZnS', 'matte', { Zn: 1, S: 1 }, 'ZnS(s)'],
     ['C', 'C(gr)', { C: 1 }, 'C(gr)'], ['Fe3O4', 'Fe3O4(s)', { Fe: 3, O: 4 }, 'Fe3O4(s)'],
-    ['MgAl2O4', 'MgAl2O4(s)', { Mg: 1, Al: 2, O: 4 }, 'MgAl2O4(s)'], ['ZnAl2O4', 'ZnAl2O4(s)', { Zn: 1, Al: 2, O: 4 }, 'ZnAl2O4(s)']
+    ['MgAl2O4', 'MgAl2O4(s)', { Mg: 1, Al: 2, O: 4 }, 'MgAl2O4(s)'], ['ZnAl2O4', 'ZnAl2O4(s)', { Zn: 1, Al: 2, O: 4 }, 'ZnAl2O4(s)'],
+    ['AlN', 'AlN(s)', { Al: 1, N: 1 }, 'AlN(s)'], ['Al4C3', 'Al4C3(s)', { Al: 4, C: 3 }, 'Al4C3(s)'],
+    ['Al2S3', 'Al2S3(l)', { Al: 2, S: 3 }, 'Al2S3(l)']
   ].map((s, i) => {
     const f = s[2]; let mw = 0; for (const e in f) mw += f[e] * AW[e];
     return { i, name: s[0], ph: s[1], f, std: s[3], sc: s[4] || 1, key: s[1] + ':' + s[0], mw };
@@ -573,7 +592,7 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
   function addInto(n, key, v) { n[SP[key].i] += v; }
 
   const MWOX = { FeO: 71.844, Fe3O4: 231.533, Fe2O3: 159.687, SiO2: 60.083, CaO: 56.077, Al2O3: 101.961, MgO: 40.304, ZnO: 81.379, PbO: 223.199, Cu2O: 143.091, Cu2S: 159.152, FeS: 87.905, CdO: 128.413 };
-  const HF298 = { 'H2O(l)': -285830, SiO2: -910700, Al2O3: -1675700, CaO: -635090, Fe2O3: -824200, ZnO: -350460, PbO: -219000, CdO: -258350 };
+  const HF298 = { 'H2O(l)': -285830, SiO2: -910700, Al2O3: -1675700, Al2S3: -651030.4, CaO: -635090, Fe2O3: -824200, ZnO: -350460, PbO: -219000, CdO: -258350 };
   const SLAG_OXIDES = [
     { key: 'FeO', sp: 'slag:FeO', factor: MWOX.FeO },
     { key: 'Fe2O3', sp: 'slag:FeO1.5', factor: MWOX.Fe2O3 / 2 },
@@ -618,6 +637,21 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
     return n;
   }
 
+  function alFeedFractions(cfg) {
+    const raw = {
+      metal: Math.max(0, Number(cfg.al_purity) || 0),
+      AlN: Math.max(0, Number(cfg.aln_pct) || 0),
+      Al4C3: Math.max(0, Number(cfg.al4c3_pct) || 0),
+      Al2S3: Math.max(0, Number(cfg.al2s3_pct) || 0)
+    };
+    const entered = raw.metal + raw.AlN + raw.Al4C3 + raw.Al2S3;
+    const scale = entered > 100 ? 100 / entered : 1;
+    return {
+      metal: raw.metal * scale, AlN: raw.AlN * scale, Al4C3: raw.Al4C3 * scale, Al2S3: raw.Al2S3 * scale,
+      Al2O3: Math.max(0, 100 - entered * scale), entered, normalized: entered > 100
+    };
+  }
+
   // ---------- fuming cycle simulation ----------
   function simulate(cfg, onlyLimit) {
     const T = cfg.T_C + 273.15, P = cfg.P;
@@ -633,7 +667,21 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
     const feed = bulk.slice();
     const feedZn = elementIn(feed, 'Zn'), feedPb = elementIn(feed, 'Pb'), feedCd = elementIn(feed, 'Cd'), feedCu = elementIn(feed, 'Cu');
     const coal = cfg.coal, ash = cfg.ash;
-    const coalStep = cfg.coal_kg_min * dt, coalReact = coalStep * cfg.coal_util / 100, coalBypass = coalStep - coalReact;
+    const coalStep = cfg.coal_kg_min * dt;
+    const charContact = Math.min(1, Math.max(0, (cfg.coal_util == null ? 90 : cfg.coal_util) / 100));
+    const volatileRelease = Math.min(1, Math.max(0, (cfg.volatile_release_pct == null ? (cfg.coal_util == null ? 90 : cfg.coal_util) : cfg.volatile_release_pct) / 100));
+    const fixedC_pct = Math.min(Math.max(0, Number(coal.fixedC) || 0), Math.max(0, Number(coal.C) || 0));
+    const volatileC_pct = Math.max(0, (Number(coal.C) || 0) - fixedC_pct);
+    const admittedC_kg = coalStep * (fixedC_pct * charContact + volatileC_pct * volatileRelease) / 100;
+    const admittedH_kg = coalStep * coal.H / 100 * volatileRelease, admittedO_kg = coalStep * coal.O / 100 * volatileRelease;
+    const admittedN_kg = coalStep * coal.N / 100 * volatileRelease, admittedS_kg = coalStep * coal.S / 100 * volatileRelease;
+    const admittedMoist_kg = coalStep * coal.H2O / 100 * volatileRelease;
+    const byCkg = coalStep * (fixedC_pct * (1 - charContact) + volatileC_pct * (1 - volatileRelease)) / 100;
+    const byHkg = coalStep * coal.H / 100 * (1 - volatileRelease), byOkg = coalStep * coal.O / 100 * (1 - volatileRelease);
+    const byNkg = coalStep * coal.N / 100 * (1 - volatileRelease), bySkg = coalStep * coal.S / 100 * (1 - volatileRelease);
+    const byMoistkg = coalStep * coal.H2O / 100 * (1 - volatileRelease);
+    const coalBypassKg = byCkg + byHkg + byOkg + byNkg + bySkg + byMoistkg;
+    const byC = byCkg / AW.C, byH2 = byHkg / (2 * AW.H), byS = bySkg / AW.S, byO2 = byOkg / (2 * AW.O);
     const airStep = cfg.air_Nm3_min * dt, xO2 = cfg.o2_pct / 100;
     const O2air = airStep * xO2 / 22.414, N2air = airStep * (1 - xO2) / 22.414;
     // aluminium schedule
@@ -646,7 +694,8 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
       else idx = Array.from({ length: steps }, (_, k) => k);
       idx.forEach(k => { alSched[k] = cfg.al_kg / idx.length; });
     }
-    const res = { steps: [], T, fRZ, dt, initialSlag: slagComposition(bulk) };
+    const alFeed = alFeedFractions(cfg);
+    const res = { steps: [], T, fRZ, dt, initialSlag: slagComposition(bulk), alFeed };
     let cumZn = 0, cumPb = 0, cumCd = 0, cumSi = 0, Qtot = 0, sensTot = 0, abHeat = 0, abO2 = 0, gasNm3 = 0, unconv = 0;
     const gasTot = new Float64Array(NS);
     let warm = null;
@@ -655,10 +704,10 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
       // reaction-zone share of bath
       for (let i = 0; i < NS; i++) n0[i] = bulk[i] * fRZ;
       let Hin = 0; for (let i = 0; i < NS; i++) Hin += n0[i] * gv.H[i];
-      // coal (reacting part) as elements + moisture + ash
-      const ck = coalReact;
-      const nC = ck * coal.C / 100 / AW.C, nH2 = ck * coal.H / 100 / (2 * AW.H), nO2c = ck * coal.O / 100 / (2 * AW.O);
-      const nN2c = ck * coal.N / 100 / (2 * AW.N), nS = ck * coal.S / 100 / AW.S, nH2O = ck * coal.H2O / 100 / 18.015;
+      // Coal availability: volatiles and fixed-carbon char can contact the reaction zone independently.
+      // Once admitted, their elements participate in the same Gibbs equilibrium as the bath and blast.
+      const nC = admittedC_kg / AW.C, nH2 = admittedH_kg / (2 * AW.H), nO2c = admittedO_kg / (2 * AW.O);
+      const nN2c = admittedN_kg / (2 * AW.N), nS = admittedS_kg / AW.S, nH2O = admittedMoist_kg / 18.015;
       addInto(n0, 'C(gr):C', nC); addInto(n0, 'gas:H2', nH2); addInto(n0, 'gas:O2', nO2c + O2air);
       addInto(n0, 'gas:N2', nN2c + N2air); addInto(n0, 'gas:S2', nS / 2); addInto(n0, 'gas:H2O', nH2O);
       Hin += nH2O * HF298['H2O(l)'];
@@ -670,8 +719,12 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
       if (s === 0 && cfg.flux_CaO_kg > 0) { const v = cfg.flux_CaO_kg / MWOX.CaO; addInto(n0, 'slag:CaO', v); Hin += v * HF298.CaO; }
       // aluminium
       if (alSched[s] > 0) {
-        const alMet = alSched[s] * cfg.al_purity / 100 / AW.Al, alOx = alSched[s] * (100 - cfg.al_purity) / 100 / MWOX.Al2O3;
-        addInto(n0, 'alloy:Al', alMet); addInto(n0, 'slag:AlO1.5', 2 * alOx); Hin += alOx * HF298.Al2O3;
+        const kg = alSched[s], alMet = kg * alFeed.metal / 100 / AW.Al, alOx = kg * alFeed.Al2O3 / 100 / MWOX.Al2O3;
+        const alN = kg * alFeed.AlN / 100 / SP['AlN(s):AlN'].mw, al4c3 = kg * alFeed.Al4C3 / 100 / SP['Al4C3(s):Al4C3'].mw;
+        const al2s3 = kg * alFeed.Al2S3 / 100 / SP['Al2S3(l):Al2S3'].mw;
+        addInto(n0, 'alloy:Al', alMet); addInto(n0, 'slag:AlO1.5', 2 * alOx);
+        addInto(n0, 'AlN(s):AlN', alN); addInto(n0, 'Al4C3(s):Al4C3', al4c3); addInto(n0, 'Al2S3(l):Al2S3', al2s3);
+        Hin += alOx * HF298.Al2O3 + alN * H298[SP['AlN(s):AlN'].i] + al4c3 * H298[SP['Al4C3(s):Al4C3'].i] + al2s3 * HF298.Al2S3;
       }
       // equilibrium
       const r = equilibrate(n0, gv, {});
@@ -687,12 +740,11 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
       cumZn += Zn; cumPb += Pb; cumCd += Cd; cumSi += SiOg;
       // sensible heat in off-gas and afterburning (25 °C basis)
       let sens = 0; for (const i of PHASES[PH_IDX.gas].sp) sens += ne[i] * (gv.H[i] - H298[i]);
-      const byC = coalBypass * coal.C / 100 / AW.C, byH2 = coalBypass * coal.H / 100 / (2 * AW.H), byS = coalBypass * coal.S / 100 / AW.S, byO2 = coalBypass * coal.O / 100 / (2 * AW.O);
-      const O2need = 0.5 * gas.CO + 0.5 * gas.H2 + 2 * gas.CH4 + 0.5 * Zn + 0.5 * gas['Pb(g)'] + 1.5 * gas['PbS(g)'] + 0.5 * Cd + 2 * gas.S2 + 1.5 * gas.H2S + 1.5 * gas.COS + 0.5 * SiOg - gas.O2 + byC + 0.5 * byH2 + byS - byO2;
+      const O2need = 0.5 * gas.CO + 0.5 * gas.H2 + 2 * gas.CH4 + 0.75 * gas.NH3 + 1.25 * gas.HCN + 0.5 * Zn + 0.5 * gas['Pb(g)'] + 1.5 * gas['PbS(g)'] + 0.5 * Cd + 2 * gas.S2 + 1.5 * gas.H2S + 1.5 * gas.COS + 0.5 * SiOg - gas.O2 + byC + 0.5 * byH2 + byS - byO2;
       const HrGas = gas.CO * H298[SP['gas:CO'].i] + gas.H2 * 0 + gas.CH4 * H298[SP['gas:CH4'].i] + Zn * H298[SP['gas:Zn(g)'].i] + gas['Pb(g)'] * H298[SP['gas:Pb(g)'].i]
         + gas['PbO(g)'] * H298[SP['gas:PbO(g)'].i] + gas['PbS(g)'] * H298[SP['gas:PbS(g)'].i] + Cd * H298[SP['gas:Cd(g)'].i] + gas.S2 * H298[SP['gas:S2'].i]
-        + gas.H2S * H298[SP['gas:H2S'].i] + gas.COS * H298[SP['gas:COS'].i] + SiOg * H298[SP['gas:SiO(g)'].i];
-      const HpGas = (gas.CO + gas.CH4 + gas.COS + byC) * H298[SP['gas:CO2'].i] + (gas.H2 + 2 * gas.CH4 + gas.H2S + byH2) * H298[SP['gas:H2O'].i]
+        + gas.H2S * H298[SP['gas:H2S'].i] + gas.COS * H298[SP['gas:COS'].i] + gas.NH3 * H298[SP['gas:NH3'].i] + gas.HCN * H298[SP['gas:HCN'].i] + SiOg * H298[SP['gas:SiO(g)'].i];
+      const HpGas = (gas.CO + gas.CH4 + gas.COS + gas.HCN + byC) * H298[SP['gas:CO2'].i] + (gas.H2 + 2 * gas.CH4 + gas.H2S + 1.5 * gas.NH3 + 0.5 * gas.HCN + byH2) * H298[SP['gas:H2O'].i]
         + (gas['PbS(g)'] + 2 * gas.S2 + gas.H2S + gas.COS + byS) * H298[SP['gas:SO2'].i]
         + Zn * HF298.ZnO + Pb * HF298.PbO + Cd * HF298.CdO + SiOg * HF298.SiO2;
       const ab = (HrGas - HpGas) / 1000;
@@ -731,7 +783,9 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
       slag_kg: slagMass, coal_kg: coalStep * steps, al_kg: cfg.al_kg,
       Q_GJ: Qtot, sens_GJ: sensTot, ab_GJ: abHeat, tertiary_air_Nm3: abO2 * (1 + cfg.ab_excess / 100) * 22.414 / 0.21,
       offgas_Nm3: gasNm3, unconverged: unconv,
-      air_kg: (O2air * 31.998 + N2air * 28.014) * steps, coal_bypass_kg: coalBypass * steps * (1 - coal.ash / 100), flux_kg: cfg.flux_CaO_kg || 0
+      air_kg: (O2air * 31.998 + N2air * 28.014) * steps, coal_bypass_kg: coalBypassKg * steps, coal_bypass_S_kg: bySkg * steps,
+      admitted_C_kg: admittedC_kg * steps, bypass_C_kg: byCkg * steps, coal_bypass_N_kg: byNkg * steps, fixed_C_kg: coalStep * fixedC_pct / 100 * steps,
+      volatile_C_kg: coalStep * volatileC_pct / 100 * steps, flux_kg: cfg.flux_CaO_kg || 0
     };
     res.final = bulk;
     res.gasTot = gasTot;
@@ -749,6 +803,10 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
       ['C + H₂O → CO + H₂', { 'C(gr)': -1, 'H2O(g)': -1, 'CO(g)': 1, 'H2(g)': 1 }],
       ['CO + H₂O → CO₂ + H₂', { 'CO(g)': -1, 'H2O(g)': -1, 'CO2(g)': 1, 'H2(g)': 1 }],
       ['CH₄ + H₂O → CO + 3H₂', { 'CH4(g)': -1, 'H2O(g)': -1, 'CO(g)': 1, 'H2(g)': 3 }],
+      ['CH₄ → C + 2H₂', { 'CH4(g)': -1, 'C(gr)': 1, 'H2(g)': 2 }],
+      ['CH₄ + CO₂ → 2CO + 2H₂', { 'CH4(g)': -1, 'CO2(g)': -1, 'CO(g)': 2, 'H2(g)': 2 }],
+      ['2NH₃ → N₂ + 3H₂', { 'NH3(g)': -2, 'N2(g)': 1, 'H2(g)': 3 }],
+      ['2HCN → 2C + H₂ + N₂', { 'HCN(g)': -2, 'C(gr)': 2, 'H2(g)': 1, 'N2(g)': 1 }],
       ['2H₂ + O₂ → 2H₂O', { 'H2(g)': -2, 'O2(g)': -1, 'H2O(g)': 2 }]]],
     ['Iron oxides', [
       ['3Fe₂O₃ + CO → 2Fe₃O₄ + CO₂', { 'Fe2O3(s)': -3, 'CO(g)': -1, 'Fe3O4(s)': 2, 'CO2(g)': 1 }],
@@ -791,6 +849,12 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
       ['2Al + 3CO₂ → Al₂O₃ + 3CO', { 'Al(l)': -2, 'CO2(g)': -3, 'Al2O3(s)': 1, 'CO(g)': 3 }],
       ['2Al + 3CO → Al₂O₃ + 3C', { 'Al(l)': -2, 'CO(g)': -3, 'Al2O3(s)': 1, 'C(gr)': 3 }],
       ['2Al + 3H₂O → Al₂O₃ + 3H₂', { 'Al(l)': -2, 'H2O(g)': -3, 'Al2O3(s)': 1, 'H2(g)': 3 }],
+      ['4AlN + 3O₂ → 2Al₂O₃ + 2N₂', { 'AlN(s)': -4, 'O2(g)': -3, 'Al2O3(s)': 2, 'N2(g)': 2 }],
+      ['2AlN + 3H₂O → Al₂O₃ + N₂ + 3H₂', { 'AlN(s)': -2, 'H2O(g)': -3, 'Al2O3(s)': 1, 'N2(g)': 1, 'H2(g)': 3 }],
+      ['Al₄C₃ + 6H₂O → 2Al₂O₃ + 3CH₄', { 'Al4C3(s)': -1, 'H2O(g)': -6, 'Al2O3(s)': 2, 'CH4(g)': 3 }],
+      ['Al₄C₃ + 6O₂ → 2Al₂O₃ + 3CO₂', { 'Al4C3(s)': -1, 'O2(g)': -6, 'Al2O3(s)': 2, 'CO2(g)': 3 }],
+      ['2Al₂S₃(l) + 9O₂ → 2Al₂O₃ + 6SO₂', { 'Al2S3(l)': -2, 'O2(g)': -9, 'Al2O3(s)': 2, 'SO2(g)': 6 }],
+      ['Al₂S₃(l) + 3FeO → Al₂O₃ + 3FeS', { 'Al2S3(l)': -1, 'FeO(l)': -3, 'Al2O3(s)': 1, 'FeS(l)': 3 }],
       ['MgO + Al₂O₃ → MgAl₂O₄', { 'MgO(s)': -1, 'Al2O3(s)': -1, 'MgAl2O4(s)': 1 }]]],
     ['Sulfur', [
       ['FeS + 1.5O₂ → FeO(l) + SO₂', { 'FeS(l)': -1, 'O2(g)': -1.5, 'FeO(l)': 1, 'SO2(g)': 1 }],
@@ -799,6 +863,7 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
       ['S₂ + 2O₂ → 2SO₂', { 'S2(g)': -1, 'O2(g)': -2, 'SO2(g)': 2 }],
       ['2H₂ + S₂ → 2H₂S', { 'H2(g)': -2, 'S2(g)': -1, 'H2S(g)': 2 }],
       ['2CO + S₂ → 2COS', { 'CO(g)': -2, 'S2(g)': -1, 'COS(g)': 2 }],
+      ['COS + H₂O → CO₂ + H₂S', { 'COS(g)': -1, 'H2O(g)': -1, 'CO2(g)': 1, 'H2S(g)': 1 }],
       ['2SO₂ + O₂ → 2SO₃', { 'SO2(g)': -2, 'O2(g)': -1, 'SO3(g)': 2 }]]],
     ['Cadmium', [
       ['CdO + CO → Cd(g) + CO₂', { 'CdO(s)': -1, 'CO(g)': -1, 'Cd(g)': 1, 'CO2(g)': 1 }]]],
@@ -825,7 +890,7 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
     return Object.keys(STD).map(k => { const r = stdHG(k, T); return { key: k, G: r.G / 1000, H: r.H / 1000, src: STD[k].src }; });
   }
 
-  const API = { R, AW, ELEMENTS, PHASES, SPECIES, SP, STD, DEFAULT_GAMMA, MWOX, SLAG_OXIDES, stdHG, gVector, equilibrate, simulate, reactionTable, stdTable, slagToSpecies, slagComposition, phaseMass, elementIn, OFFSET };
+  const API = { R, AW, ELEMENTS, PHASES, SPECIES, SP, STD, DEFAULT_GAMMA, MWOX, SLAG_OXIDES, stdHG, gVector, equilibrate, simulate, reactionTable, stdTable, slagToSpecies, slagComposition, alFeedFractions, phaseMass, elementIn, OFFSET };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.FumeEngine = API;
 })(this);
 
@@ -838,7 +903,7 @@ math[display=block]{margin:6px 0; overflow-x:auto; overflow-y:hidden; max-width:
     turnover: { label: 'Bath turnover, %/min', get: c => c.turnover_pct_min, set: (c, v) => { c.turnover_pct_min = v; }, lo: 0.05, hi: 30 },
     gZnO: { label: 'γ ZnO', get: c => (c.gamma && c.gamma['slag:ZnO']) || 2.0, set: (c, v) => { c.gamma = c.gamma || {}; c.gamma['slag:ZnO'] = v; }, lo: 0.2, hi: 15 },
     gPbO: { label: 'γ PbO', get: c => (c.gamma && c.gamma['slag:PbO']) || 0.3, set: (c, v) => { c.gamma = c.gamma || {}; c.gamma['slag:PbO'] = v; }, lo: 0.01, hi: 5 },
-    coalUtil: { label: 'Coal reacting in bath, %', get: c => c.coal_util, set: (c, v) => { c.coal_util = v; }, lo: 10, hi: 100 },
+    coalUtil: { label: 'Char available to reaction zone, %', get: c => c.coal_util, set: (c, v) => { c.coal_util = v; }, lo: 10, hi: 100 },
     gFeO15: { label: 'γ FeO1.5', get: c => (c.gamma && c.gamma['slag:FeO1.5']) || 1.5, set: (c, v) => { c.gamma = c.gamma || {}; c.gamma['slag:FeO1.5'] = v; }, lo: 0.1, hi: 20 }
   };
   function interp(ts, ys, t) {
@@ -948,12 +1013,12 @@ const DEFAULTS = {
   slag_t:50, flux_CaO_kg:0,
   slag:{FeO:42.05,Fe3O4:8,SiO2:30,CaO:3,Al2O3:4,MgO:1.5,ZnO:8,PbO:1.2,Cu2O:0.6,Cu2S:0.6,FeS:1.0,CdO:0.05},
   coal_kg_min:80, air_Nm3_min:350, o2_pct:21,
-  coal:{C:72,H:4.5,O:8,N:1.5,S:0.8,H2O:3,ash:10.2}, ash:{SiO2:55,Al2O3:30,CaO:8,Fe2O3:7},
-  al_kg:500, al_purity:95, al_mode:'even',
+  coal:{C:72,fixedC:60,H:4.5,O:8,N:1.5,S:0.8,H2O:3,ash:10.2}, ash:{SiO2:55,Al2O3:30,CaO:8,Fe2O3:7},
+  al_kg:500, al_purity:95, aln_pct:0, al4c3_pct:0, al2s3_pct:0, al_mode:'even',
   T_C:1250, P:1, cycle_min:120, steps:24,
-  turnover_pct_min:2.5, coal_util:90, ab_excess:20,
+  turnover_pct_min:2.5, coal_util:90, volatile_release_pct:90, ab_excess:20,
   gamma:Object.assign({}, E.DEFAULT_GAMMA),
-  phases:{matte:true, alloy:true, bullion:true, 'C(gr)':true, 'Fe3O4(s)':true, 'MgAl2O4(s)':true, 'ZnAl2O4(s)':true},
+  phases:{matte:true, alloy:true, bullion:true, 'C(gr)':true, 'Fe3O4(s)':true, 'MgAl2O4(s)':true, 'ZnAl2O4(s)':true, 'AlN(s)':true, 'Al4C3(s)':true, 'Al2S3(l)':true},
   offsets:{}
 };
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -977,10 +1042,10 @@ function sci(v){ if(!isFinite(v)||v<=0) return '0'; if (v>=0.01 && v<1e4) return
 
 // ---------- input groups ----------
 const SLAG_KEYS = ['FeO','Fe3O4','SiO2','CaO','Al2O3','MgO','ZnO','PbO','Cu2O','Cu2S','FeS','CdO'];
-const COAL_KEYS = [['C','C'],['H','H'],['O','O'],['N','N'],['S','S'],['H2O','Moisture'],['ash','Ash']];
+const COAL_KEYS = [['C','Total C'],['fixedC','Fixed C (subset of C)'],['H','H'],['O','O'],['N','N'],['S','S'],['H2O','Moisture'],['ash','Ash']];
 const ASH_KEYS = ['SiO2','Al2O3','CaO','Fe2O3'];
 const GAMMA_GROUPS = [['slag','Slag (cation-fraction basis)'],['alloy','Iron alloy'],['bullion','Cu–Pb bullion'],['matte','Matte']];
-const PHASE_LABELS = [['matte','Matte (Cu₂S–FeS–PbS–ZnS)'],['alloy','Iron alloy (Fe–Cu–Si–Al–Pb)'],['bullion','Cu–Pb bullion (Cu–Pb–Fe–Zn)'],['C(gr)','Unburnt char (graphite)'],['Fe3O4(s)','Solid magnetite'],['MgAl2O4(s)','Spinel MgAl₂O₄'],['ZnAl2O4(s)','Gahnite ZnAl₂O₄']];
+const PHASE_LABELS = [['matte','Matte (Cu₂S–FeS–PbS–ZnS)'],['alloy','Iron alloy (Fe–Cu–Si–Al–Pb)'],['bullion','Cu–Pb bullion (Cu–Pb–Fe–Zn)'],['C(gr)','Equilibrium graphite / char'],['Fe3O4(s)','Solid magnetite'],['MgAl2O4(s)','Spinel MgAl₂O₄'],['ZnAl2O4(s)','Gahnite ZnAl₂O₄'],['AlN(s)','Aluminium nitride from dross'],['Al4C3(s)','Aluminium carbide from dross'],['Al2S3(l)','Liquid aluminium sulfide from dross']];
 
 function numField(path, label, unit, step, min, max){
   return `<div class="field"><label for="in-${path}">${label}</label><input type="number" id="in-${path}" data-k="${path}" step="${step||'any'}" ${min!=null?'min="'+min+'"':''} ${max!=null?'max="'+max+'"':''}><span class="unit">${unit||''}</span></div>`;
@@ -1001,14 +1066,20 @@ function buildGroups(){
     <p class="note" id="stoich"></p>
     <div class="subhead">Coal analysis, wt% as fired</div>
     <div class="cgrid">${COAL_KEYS.map(([k,l])=>`<div class="field"><label for="in-coal|${k}">${l}</label><input type="number" id="in-coal|${k}" data-k="coal|${k}" step="0.1" min="0"></div>`).join('')}</div>
+    <p class="note">Fixed C is part of total carbon, not an additional component. Carbon above fixed C is treated as volatile carbon.</p>
     <div class="subhead">Ash composition, wt% (goes to slag)</div>
     <div class="cgrid">${ASH_KEYS.map(k=>`<div class="field"><label for="in-ash|${k}">${fx(k)}</label><input type="number" id="in-ash|${k}" data-k="ash|${k}" step="1" min="0"></div>`).join('')}</div>
   </div></details>`);
   h.push(`<details class="grp" open><summary>Aluminium reductant <span class="hint" id="h-al"></span></summary><div class="grp-body">
     ${numField('al_kg','Aluminium per cycle','kg',50,0)}
-    ${numField('al_purity','Metallic Al (rest Al₂O₃)','%',1,0,100)}
+    <div class="subhead">Feed assay, wt% (balance Al₂O₃)</div>
+    ${numField('al_purity','Metallic Al','%',1,0,100)}
+    ${numField('aln_pct','AlN','%',0.1,0,100)}
+    ${numField('al4c3_pct','Al₄C₃','%',0.1,0,100)}
+    ${numField('al2s3_pct','Al₂S₃','%',0.1,0,100)}
+    <div class="assay" id="alAssay"></div>
     <div class="field"><label for="in-al_mode">Addition timing</label><select id="in-al_mode" data-k="al_mode" style="grid-column:span 2"><option value="even">Spread over the cycle</option><option value="start">First quarter of the cycle</option><option value="end">Last third of the cycle</option></select></div>
-    <p class="note">Scrap or granules with 90–99% Al; dross is often 40–70% metallic Al.</p>
+    <p class="note">For salt-bearing dross, NaCl/KCl and fluoride chemistry remains outside this model. Use a washed/non-salt assay or treat the result as a screening calculation.</p>
   </div></details>`);
   h.push(`<details class="grp"><summary>Bath and cycle <span class="hint" id="h-bath"></span></summary><div class="grp-body">
     ${numField('T_C','Bath temperature','°C',5,1100,1450)}
@@ -1018,9 +1089,10 @@ function buildGroups(){
   </div></details>`);
   h.push(`<details class="grp"><summary>Model calibration <span class="hint">fit to plant data</span></summary><div class="grp-body">
     ${numField('turnover_pct_min','Bath turnover through reaction zone','%/min',0.1,0.05,100)}
-    ${numField('coal_util','Coal reacting in the bath','%',1,1,100)}
+    ${numField('coal_util','Fixed-carbon char available to reaction zone','%',1,0,100)}
+    ${numField('volatile_release_pct','Coal volatiles released to reaction zone','%',1,0,100)}
     ${numField('ab_excess','Excess tertiary air','%',5,0)}
-    <p class="note">Turnover sets how fast slag passes through the tuyere zone, where it reaches equilibrium with the coal–air jet. Raise it until the predicted zinc curve matches your plant samples. The dashed curves show the limit at 100% per step.</p>
+    <p class="note">Turnover sets how fast slag passes through the tuyere zone. Char availability and volatile release are independent contact factors; neither is a fitted kinetic rate constant. Calibrate against plant slag and off-gas data.</p>
     <div class="subhead">Activity coefficients γ (Raoultian, constant)</div>
     ${GAMMA_GROUPS.map(([ph,lab])=>{
       const keys = Object.keys(E.DEFAULT_GAMMA).filter(k=>k.startsWith(ph+':'));
@@ -1078,8 +1150,14 @@ function updateHints(){
   let msg = `The blast supplies <strong>${F0(ratio)}%</strong> of the air needed to burn the coal completely (${F0(stoich)} Nm³/min).`;
   if (ratio>=100) msg += ' The bath is oxidising at this ratio, so little or no zinc will fume.';
   else if (ratio<45) msg += ' Very reducing: expect metallic iron to form.';
+  const coalSum = ['C','H','O','N','S','H2O','ash'].reduce((a,k)=>a+(+cfg.coal[k]||0),0);
+  const fixedC = Math.min(Math.max(0,+cfg.coal.fixedC||0),Math.max(0,+cfg.coal.C||0));
+  msg += ` <span${Math.abs(coalSum-100)>0.5?' style="color:var(--warn)"':''}>Ultimate-analysis sum: <strong>${F(coalSum,1)}%</strong>${Math.abs(coalSum-100)>0.5?' (check assay)':''}.</span> Volatile carbon: ${F(Math.max(0,(+cfg.coal.C||0)-fixedC),1)}%; fixed C used: ${F(fixedC,1)}%.`;
+  if ((+cfg.coal.fixedC||0) > (+cfg.coal.C||0)) msg += ' Fixed C exceeds total C and is capped at total C in the calculation.';
   document.getElementById('stoich').innerHTML = msg;
-  document.getElementById('h-al').textContent = cfg.al_kg>0 ? `${F0(cfg.al_kg)} kg` : 'none';
+  const af=E.alFeedFractions(cfg);
+  document.getElementById('alAssay').innerHTML = `<span>Metal Al <b>${F(af.metal,1)}%</b></span><span>AlN <b>${F(af.AlN,1)}%</b></span><span>Al₄C₃ <b>${F(af.Al4C3,1)}%</b></span><span>Al₂S₃ <b>${F(af.Al2S3,1)}%</b></span><span>Al₂O₃ <b>${F(af.Al2O3,1)}%</b></span>${af.normalized?`<span style="color:var(--warn)">Entered sum ${F(af.entered,1)}%; normalised to 100%</span>`:''}`;
+  document.getElementById('h-al').textContent = cfg.al_kg>0 ? `${F0(cfg.al_kg)} kg, ${F(af.metal,0)}% metal` : 'none';
   document.getElementById('h-bath').textContent = `${F0(cfg.T_C)} °C, ${F0(cfg.cycle_min)} min`;
 }
 
@@ -1221,23 +1299,35 @@ const sci2 = (v, d) => { if (!isFinite(v)) return '–'; if (v === 0) return '0'
 
 // ---------- bath mass balance ----------
 function renderBalance(){
-  const r = lastRes, s = r.summary, AW = E.AW, MW = E.MWOX, els = ['Zn','Pb','Cu','Fe','S'];
+  const r = lastRes, s = r.summary, AW = E.AW, MW = E.MWOX, els = ['Zn','Pb','Cu','Fe','Al','S','C','N'];
   const elv = (n, ph) => els.map(e => E.elementIn(n, e, ph) * AW[e]);
   const mass = (n, ph) => E.SPECIES.reduce((a, sp) => (ph === undefined || sp.ph === ph) ? a + n[sp.i] * sp.mw : a, 0);
   const pureMass = n => E.SPECIES.reduce((a, sp) => E.PHASES[sp.pk].type === 'pure' ? a + n[sp.i] * sp.mw : a, 0);
   const pureEl = n => els.map(e => E.SPECIES.reduce((a, sp) => E.PHASES[sp.pk].type === 'pure' ? a + (sp.f[e] || 0) * n[sp.i] * AW[e] : a, 0));
-  const ck = s.coal_kg, c = cfg.coal, ash = cfg.ash, byp = 1 - cfg.coal_util / 100;
+  const ck = s.coal_kg, c = cfg.coal, ash = cfg.ash, af = r.alFeed;
   const zero = els.map(() => 0);
-  const coalEl = [0, 0, 0, ck * c.ash / 100 * ash.Fe2O3 / 100 * 2 * AW.Fe / MW.Fe2O3, ck * c.S / 100];
+  const coalEl = zero.slice();
+  coalEl[els.indexOf('Fe')] = ck * c.ash / 100 * ash.Fe2O3 / 100 * 2 * AW.Fe / MW.Fe2O3;
+  coalEl[els.indexOf('Al')] = ck * c.ash / 100 * ash.Al2O3 / 100 * 2 * AW.Al / MW.Al2O3;
+  coalEl[els.indexOf('S')] = ck * c.S / 100; coalEl[els.indexOf('C')] = ck * c.C / 100; coalEl[els.indexOf('N')] = ck * c.N / 100;
+  const blastEl = zero.slice();
+  const blastKmol = cfg.air_Nm3_min / 22.414 * cfg.cycle_min;
+  blastEl[els.indexOf('N')] = blastKmol * (1 - cfg.o2_pct / 100) * 2 * AW.N;
+  const alEl = zero.slice(), alkg = s.al_kg;
+  const alNMW = E.SP['AlN(s):AlN'].mw, alCMW = E.SP['Al4C3(s):Al4C3'].mw, alSMW = E.SP['Al2S3(l):Al2S3'].mw;
+  alEl[els.indexOf('Al')] = alkg * (af.metal / 100 + af.AlN / 100 * AW.Al / alNMW + af.Al4C3 / 100 * 4 * AW.Al / alCMW + af.Al2S3 / 100 * 2 * AW.Al / alSMW + af.Al2O3 / 100 * 2 * AW.Al / MW.Al2O3);
+  alEl[els.indexOf('S')] = alkg * af.Al2S3 / 100 * 3 * AW.S / alSMW;
+  alEl[els.indexOf('C')] = alkg * af.Al4C3 / 100 * 3 * AW.C / alCMW;
+  alEl[els.indexOf('N')] = alkg * af.AlN / 100 * AW.N / alNMW;
   const inRows = [
     ['Slag charge, including entrained matte', mass(r.feed), elv(r.feed)],
-    ['Coal', ck, coalEl], ['Blast air', s.air_kg, zero], ['Aluminium', s.al_kg, zero], ['Lime flux', s.flux_kg, zero]];
+    ['Coal', ck, coalEl], ['Blast air', s.air_kg, blastEl], ['Aluminium / dross', s.al_kg, alEl], ['Lime flux', s.flux_kg, zero]];
   const outRows = [
     ['Discard slag', mass(r.final, 'slag'), elv(r.final, 'slag')], ['Matte', mass(r.final, 'matte'), elv(r.final, 'matte')],
     ['Iron alloy', mass(r.final, 'alloy'), elv(r.final, 'alloy')], ['Cu–Pb bullion', mass(r.final, 'bullion'), elv(r.final, 'bullion')],
-    ['Solids: char, magnetite, spinels', pureMass(r.final), pureEl(r.final)],
+    ['Separate phases: char, magnetite, spinels and dross compounds', pureMass(r.final), pureEl(r.final)],
     ['Bath off-gas with Zn, Pb and Cd vapour', mass(r.gasTot, 'gas'), elv(r.gasTot, 'gas')],
-    ['Coal bypassing the bath', s.coal_bypass_kg, [0, 0, 0, 0, ck * byp * c.S / 100]]];
+    ['Coal bypassing the bath', s.coal_bypass_kg, els.map(e => e==='S'?s.coal_bypass_S_kg:e==='C'?s.bypass_C_kg:e==='N'?s.coal_bypass_N_kg:0)]];
   const sum = rows => [rows.reduce((a, x) => a + x[1], 0), els.map((_, k) => rows.reduce((a, x) => a + x[2][k], 0))];
   const [mi, ei] = sum(inRows), [mo, eo] = sum(outRows);
   const z = (v, d) => Math.abs(v) < 0.5 * Math.pow(10, -d) ? 0 : v;
@@ -1439,21 +1529,22 @@ function renderPhases(){
   const block = (title, mass, inner) => `<div class="block"><h3>${title}</h3><div class="mass">${mass}</div>${inner}</div>`;
   const phaseBlock = (ph, title, els) => { const m=E.phaseMass(n,ph); if (m<1e-3) return block(title,'Not formed',''); return block(title, `${F(m,1)} kg`, compTable(els.map(e=>[e, F(100*el(ph,e)/m,2)]), ['Element','wt%'])); };
   const fumeRows = [['ZnO',s.ZnO_kg],['PbO',s.PbO_kg],['CdO',s.CdO_kg],['SiO2 (from SiO gas)',s.SiO2_kg]].map(([k,v])=>[fx(k),F0(v),F(s.fume_kg>0?100*v/s.fume_kg:0,2)]);
-  const solids = [['C(gr):C','Unburnt char',12.011],['Fe3O4(s):Fe3O4','Magnetite',231.533],['MgAl2O4(s):MgAl2O4','Spinel MgAl₂O₄',142.27],['ZnAl2O4(s):ZnAl2O4','Gahnite ZnAl₂O₄',183.34]].map(([k,l,mw])=>[uniSub(l),F0(n[SP[k].i]*mw)]);
+  const solids = [['C(gr):C','Equilibrium graphite / char'],['Fe3O4(s):Fe3O4','Magnetite'],['MgAl2O4(s):MgAl2O4','Spinel MgAl₂O₄'],['ZnAl2O4(s):ZnAl2O4','Gahnite ZnAl₂O₄'],['AlN(s):AlN','Aluminium nitride'],['Al4C3(s):Al4C3','Aluminium carbide'],['Al2S3(l):Al2S3','Liquid aluminium sulfide']].map(([k,l])=>[uniSub(l),F0(n[SP[k].i]*SP[k].mw)]);
   document.getElementById('p-phases').innerHTML = `<div class="blocks">
    ${block('Fume (as oxides)', `${F(s.fume_kg/1000,3)} t: Zn ${F(s.fume_Zn_pct,1)}%, Pb ${F(s.fume_Pb_pct,1)}%, Cd ${F(s.fume_Cd_pct,2)}%`, compTable(fumeRows,['Compound','kg','wt%']))}
    ${block('Discard slag', `${F(slagM/1000,2)} t, Fe³⁺/ΣFe ${F(100*nn('slag:FeO1.5')/feTot,1)}%`, compTable(slagRows,['Oxide','wt%']))}
    ${(()=>{ const m=E.phaseMass(n,'matte'); if(m<1e-3) return block('Matte','Not formed',''); return block('Matte', `${F(m,1)} kg, Cu ${F(100*el('matte','Cu')/m,1)}%`, compTable([['Cu2S',nn('matte:Cu2S')*159.152],['FeS',nn('matte:FeS')*87.905],['PbS',nn('matte:PbS')*239.26],['ZnS',nn('matte:ZnS')*97.44]].map(([k,v])=>[fx(k),F(100*v/m,2)]),['Compound','wt%'])); })()}
    ${phaseBlock('alloy','Iron alloy',['Fe','Cu','Si','Al','Pb'])}
    ${phaseBlock('bullion','Cu–Pb bullion',['Cu','Pb','Fe','Zn'])}
-   ${block('Solid phases', 'Precipitated or left in the bath', compTable(solids,['Phase','kg']))}
+   ${block('Separate phases', 'Precipitated or left in the bath', compTable(solids,['Phase','kg']))}
    ${block('Energy and gas', 'Whole cycle', compTable([
       ['Reaction-zone heat surplus, GJ', F(-s.Q_GJ,2)],
       ['Sensible heat in bath off-gas, GJ', F(s.sens_GJ,2)],
       ['Afterburning heat in freeboard, GJ', F(s.ab_GJ,2)],
       ['Bath off-gas, Nm³', F0(s.offgas_Nm3)],
       ['Tertiary air, Nm³', F0(s.tertiary_air_Nm3)],
-      ['Coal, t', F(s.coal_kg/1000,2)],['Aluminium, kg', F0(s.al_kg)]],['Quantity','Value']))}
+      ['Coal, t', F(s.coal_kg/1000,2)],['Coal C admitted / bypass, kg', `${F0(s.admitted_C_kg)} / ${F0(s.bypass_C_kg)}`],
+      ['Char availability / volatile release, %', `${F0(cfg.coal_util)} / ${F0(cfg.volatile_release_pct)}`],['Aluminium / dross, kg', F0(s.al_kg)]],['Quantity','Value']))}
    ${block('Metal balance', 'Feed and fume', compTable([
       ['Zn', F0(s.feedZn_kg), F0(s.Zn_kg), F(s.Zn_rec,1)],
       ['Pb', F0(s.feedPb_kg), F0(s.Pb_kg), F(s.Pb_rec,1)],
@@ -1556,18 +1647,18 @@ function buildAbout(){
   document.getElementById('p-about').innerHTML = `<div class="prose">
   <h3>What is calculated</h3>
   <p>The fuming cycle is split into steps. In each step a share of the bath (set by the turnover) meets that step’s coal, blast air and aluminium in the tuyere reaction zone. The model finds the equilibrium of this zone by minimising the total Gibbs energy of all phases under element balance, using the Gordon–McBride (RAND) Newton method with automatic phase addition and removal. The gas, carrying Zn, Pb, PbO, PbS and Cd vapour, leaves the bath and becomes fume after re-oxidation in the freeboard. The condensed products mix back into the bath for the next step.</p>
-  <p>Because a Gibbs minimiser works with species rather than reactions, every reaction between the species below is accounted for at once: coal gasification, Boudouard, water–gas shift, reduction of Fe₂O₃, Fe₃O₄, FeO, ZnO, PbO and Cu₂O by C, CO, H₂ and Fe, aluminothermic reduction of all oxides including SiO₂, sulfide exchange between matte and slag, volatilisation of Pb, PbO, PbS and Cd, and spinel formation.</p>
+  <p>Because a Gibbs minimiser works with species rather than a fixed reaction list, every stoichiometrically possible reaction between the species below is considered at once. That includes coal gasification, Boudouard and water–gas shift chemistry; NH₃/HCN partitioning; reduction of Fe₂O₃, Fe₃O₄, FeO, ZnO, PbO and Cu₂O by C, CO, H₂, Fe and Al; AlN, Al₄C₃ and Al₂S₃ conversion; sulfide exchange; volatile Zn, Pb, PbO, PbS and Cd; and spinel formation.</p>
   <h3>Phases and species</h3>
-  <p><b>Gas</b> (ideal): CO, CO₂, H₂, H₂O, CH₄, N₂, O₂, Zn, Pb, PbO, PbS, Cd, SO₂, SO₃, S₂, H₂S, COS, SiO. <b>Slag</b> (ideal on a single-cation basis with constant activity coefficients): FeO, FeO<sub>1.5</sub>, SiO₂, CaO, AlO<sub>1.5</sub>, MgO, ZnO, PbO, CuO<sub>0.5</sub>, CdO. <b>Iron alloy</b>: Fe, Cu, Si, Al, Pb. <b>Cu–Pb bullion</b>: Cu, Pb, Fe, Zn. <b>Matte</b>: FeS, Cu₂S, PbS, ZnS. <b>Pure solids</b>: graphite, magnetite, MgAl₂O₄, ZnAl₂O₄.</p>
+  <p><b>Gas</b> (ideal): CO, CO₂, H₂, H₂O, CH₄, N₂, NH₃, HCN, O₂, Zn, Pb, PbO, PbS, Cd, SO₂, SO₃, S₂, H₂S, COS, SiO. <b>Slag</b> (ideal on a single-cation basis with constant activity coefficients): FeO, FeO<sub>1.5</sub>, SiO₂, CaO, AlO<sub>1.5</sub>, MgO, ZnO, PbO, CuO<sub>0.5</sub>, CdO. <b>Iron alloy</b>: Fe, Cu, Si, Al, Pb. <b>Cu–Pb bullion</b>: Cu, Pb, Fe, Zn. <b>Matte</b>: FeS, Cu₂S, PbS, ZnS. <b>Separate phases</b>: graphite, magnetite, MgAl₂O₄, ZnAl₂O₄, AlN, Al₄C₃ and liquid Al₂S₃.</p>
   <h3>Data</h3>
-  <p>Most standard-state data are NASA Glenn polynomials (McBride, Zehe and Gordon, 2002). ZnO, ZnS, Cu₂S, CdO and Cd(g) are built from 298 K enthalpy and entropy with heat-capacity equations; ZnAl₂O₄ is estimated from its oxides. Two values were corrected after checking: FeO(l) and Cu₂S (see below). Adjust any species with the offsets in the data tab when you have better data.</p>
+  <p>Most standard-state data are NASA Glenn polynomials (McBride, Zehe and Gordon, 2002). NH₃ and HCN use GRI-Mech/NASA7 data; AlN uses NASA/JANAF; Al₄C₃ and liquid Al₂S₃ use NASA CEA/Gurvich data. ZnO, ZnS, Cu₂S, CdO and Cd(g) are built from 298 K enthalpy and entropy with heat-capacity equations; ZnAl₂O₄ is estimated from its oxides. Adjust any species with the offsets in the data tab when you have better data.</p>
   <h3>Verification</h3>
-  <p><b>Gibbs minimiser.</b> Thirteen reaction-zone equilibria were re-solved with Cantera’s VCS multiphase solver, an independent code, using identical species, phases and data. They span normal fuming, over-reduction to iron alloy, graphite saturation, oxidising blast, magnetite saturation, spinel and gahnite precipitation, no sulfur, and 1150–1400 °C. Both solvers found the same stable phases every time. Total Gibbs energies agreed to 4 × 10<sup>−10</sup> and species amounts to better than 2 parts in 10<sup>7</sup>. Element balances close to 10<sup>−14</sup>. The app’s NASA polynomial code matches Cantera’s evaluation of the same files to 10<sup>−4</sup> J/mol.</p>
+  <p><b>Gibbs minimiser.</b> The original 45-species core was re-solved for thirteen reaction-zone cases with Cantera’s VCS multiphase solver using identical phases and data. Both solvers found the same stable phases; total Gibbs energies agreed to 4 × 10<sup>−10</sup> and species amounts to better than 2 parts in 10<sup>7</sup>. The expanded coal/dross cases are checked in this app for convergence, non-negative amounts, element closure and equilibrium optimality, but the new AlN/Al₄C₃/Al₂S₃ branches have not yet been independently benchmarked against FactSage or a plant assay.</p>
   <p><b>Data.</b> Values were compared at 1100–1400 °C with SUPCRT16, NASA CEA, the CRC Handbook, HERACLES, the Reed (1971) Ellingham atlas as digitised in the ltegg/ellingham repository, and the Fe–O and Cu–S Calphad assessments in the LibreCalphad steel database. ZnO agrees within 1.3 kJ/mol of SUPCRT16 and within 1.6 kJ/mol of the Reed atlas, and ZnO + C = Zn(g) + CO reaches ΔG° = 0 at 950 °C. ZnS agrees within 0.6 kJ/mol, CdO within 1.4, Cd(g) exactly, and the oxides of Fe(III), Si, Al, Ca and Mg within about 2 kJ/mol.</p>
   <p><b>Corrections made.</b> NASA’s stoichiometric FeO is 8–11 kJ/mol more stable than real wüstite in equilibrium with iron, according to both the Calphad Fe–O assessment and the Reed atlas. The slag FeO standard state is therefore now iron-saturated liquid iron oxide, the basis used for measured FeO activities. Sources disagree on Cu₂S by 14 kJ/mol (CRC/NBS versus NASA CEA), so it now follows the Calphad assessment of Lee et al. (2007), which lies between them. ZnAl₂O₄ could not be checked and matters only for high-Al₂O₃ slags.</p>
   <p><b>Effect on results.</b> Every alternative data source moves the default zinc recovery by 1 point or less. The FeO correction mainly changes the iron chemistry: Fe³⁺/Fe²⁺ roughly doubles and metallic iron forms at a lower coal rate. Changing γ ZnO by ±25% moves zinc recovery by 3 to 4 points, and the turnover moves it more, so calibration against plant data matters far more than the remaining data uncertainty.</p>
   <h3>Limits of the model</h3>
-  <p>Activity coefficients are constant, so effects such as lime raising the ZnO activity must be entered by changing γ ZnO. Kinetics enter only through the bath turnover and the share of coal reacting in the bath; calibrate both against plant zinc curves. Carbon dissolving in iron, slag carry-over into the fume, chlorides from aluminium dross, and the minor elements In, Ge, Sn, As, Sb and Bi are not modelled. The heat balance treats coal as its elements, so it ignores the small heat of formation of coal, and it reports the balance rather than predicting temperature. Results are equilibrium estimates for planning and comparison, not a substitute for plant trials.</p>
+  <p>Activity coefficients are constant, so effects such as lime raising ZnO activity must be entered by changing γ ZnO. Kinetics enter only through bath turnover, fixed-carbon availability and volatile release; these are contact factors, not rate constants. Carbon dissolved in iron, particle-size and pore diffusion, injection hydrodynamics, slag carry-over, chlorides/fluorides and Na/K salts from dross, and the minor elements In, Ge, Sn, As, Sb and Bi are not modelled. The coal heat balance uses constituent elements and therefore omits the parent coal heat of formation. Results are engineering screening estimates, not a substitute for plant calibration and trials.</p>
   </div>`;
 }
 
