@@ -1,0 +1,6 @@
+{
+  "name": "fuming-formulas",
+  "private": true,
+  "description": "Renders the governing equations to inline SVG for the Formulas tab",
+  "dependencies": { "mathjax-full": "3.2.2" }
+}

@@ -23,3 +23,7 @@ Most standard-state data are NASA Glenn polynomials (McBride, Zehe and Gordon, 2
 ## Fonts
 
 Barlow and Barlow Semi Condensed are embedded under the SIL Open Font License.
+
+## Heat balance model
+
+The folder `heat-balance/` holds a second page, the Fuming Thermodynamic Model. It uses the same standard states for ZnO, PbO, FeO and FeO₁.₅ and is built around the enthalpy balance: itemised heat sources and sinks, a bath temperature solved from the balance, a continuous mode, parameter sweeps and a numbered formula sheet. Open `heat-balance/index.html`, or the `heat-balance/` path of the GitHub Pages site. Details are in `heat-balance/README.md`.
