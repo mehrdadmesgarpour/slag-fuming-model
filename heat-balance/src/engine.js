@@ -204,7 +204,7 @@ function solveLinear(A, rhs, n) {
    Gas: ideal. Slag: solution of single-cation oxides; activity coefficients from the model gam (see activityModel).
    Other condensed phases: pure. Method: Lagrangian (RAND / White-Johnson-Dantzig) Newton iteration
    on element potentials, phase totals and pure-phase amounts, with phase addition and removal. */
-function equilibrate(b, T, P, gam, warm) {
+function equilibrate(b, T, P, gam, warm, trace) {
   let btot = 0; for (let k = 0; k < NE; k++) btot += Math.max(b[k], 0);
   const bs = new Float64Array(NE);
   for (let k = 0; k < NE; k++) { bs[k] = Math.max(b[k], 0) / btot; if (bs[k] < 1e-12) bs[k] = 0; }
@@ -372,6 +372,18 @@ function equilibrate(b, T, P, gam, warm) {
       for (let p = 0; p < nP; p++) err = Math.max(err, Math.abs(rhs[nE + p]));
       actC.forEach((c, x) => { err = Math.max(err, Math.abs(rhs[nE + nP + x]) / ntot); });
       const lam = Math.min(1, l1 > 0 ? 2 / l1 : 1, l2) * damp;
+      if (trace) {
+        let res0 = 0;
+        for (let k = 0; k < nE; k++) {
+          let sres = -be[k];
+          for (let q = 0; q < nS; q++) if (pOn[phOf[q]]) sres += a[q][k] * nn[q];
+          for (let c = 0; c < nC; c++) if (active[c]) sres += ac[c][k] * ncond[c];
+          res0 = Math.max(res0, Math.abs(sres));
+        }
+        const pv = {}; el.forEach((k, j) => { pv[ELS[k]] = pi[j]; });
+        const ln = {}; phases.forEach((ph, j) => { ln[ph] = pOn[j] ? lnN[j] + Math.log(btot) : null; });
+        trace.push({ ev: 'it', it: iters, step: lam, err, res: res0 * btot, pi: pv, lnN: ln, pure: pure.filter((_, c) => active[c]).map(i => SP[i].id) });
+      }
       for (let q = 0; q < nS; q++) { if (!pOn[phOf[q]]) continue; lnn[q] += lam * dln[q]; if (lnn[q] < -600) lnn[q] = -600; }
       for (let p = 0; p < nP; p++) if (pOn[p]) lnN[p] += lam * rhs[nE + p];
       actC.forEach((c, x) => { ncond[c] += lam * rhs[nE + nP + x]; });
@@ -389,10 +401,10 @@ function equilibrate(b, T, P, gam, warm) {
       /* a phase that no element depends on can vanish: switch it off when it keeps shrinking */
       for (let p = 0; p < nP; p++) if (pOn[p] && canVanish[p]) {
         shrink[p] = rhs[nE + p] < -1 ? shrink[p] + 1 : 0;
-        if (shrink[p] >= 4 || lnN[p] < -27.6) { pOn[p] = 0; shrink[p] = 0; }
+        if (shrink[p] >= 4 || lnN[p] < -27.6) { pOn[p] = 0; shrink[p] = 0; if (trace) trace.push({ ev: 'off', id: phases[p], it: iters }); }
       }
       /* without a reduced pure phase the oxygen balance cannot close: bring in a sink */
-      if (it >= 2 && it - lastAdd >= 3 && oxygenShort()) { if (addSink(true)) lastAdd = it; }
+      if (it >= 2 && it - lastAdd >= 3 && oxygenShort()) { if (addSink(true)) { lastAdd = it; if (trace) trace.push({ ev: 'sink', it: iters }); } }
     }
     return false;
   }
@@ -401,6 +413,7 @@ function equilibrate(b, T, P, gam, warm) {
   function run(useWarm, damp) {
     if (useWarm) warmStart(); else coldStart();
     const seen = new Set(); let removeFirst = false, gasRetry = false;
+    if (trace) { trace.length = 0; trace.push({ ev: 'start', warm: !!useWarm, damp, pure: pure.filter((_, c) => active[c]).map(i => SP[i].id) }); }
     for (let outer = 0; outer < 60; outer++) {
       const ok = newton(damp < 1 ? 1500 : 400, damp);
       if (!ok) {
@@ -410,14 +423,14 @@ function equilibrate(b, T, P, gam, warm) {
         if (pGas >= 0 && canVanish[pGas] && pOn[pGas] && !gasRetry) {
           const keep = Array.from(active); coldStart();
           for (let c = 0; c < nC; c++) { active[c] = keep[c] || active[c]; if (active[c]) ncond[c] = 0; }
-          pOn[pGas] = 0; gasRetry = true; seen.clear(); continue;
+          pOn[pGas] = 0; gasRetry = true; seen.clear(); if (trace) trace.push({ ev: 'restart', it: iters }); continue;
         }
         return false;
       }
       let turned = false;
       for (let p = 0; p < nP && !turned; p++) if (!pOn[p] && flips[p] < 3) {
         const Q = saturation(p);
-        if (Q > 1 + 1e-9) { phaseOn(p, Q); flips[p]++; turned = true; }
+        if (Q > 1 + 1e-9) { phaseOn(p, Q); flips[p]++; turned = true; if (trace) trace.push({ ev: 'on', id: phases[p], it: iters, Q }); }
       }
       if (turned) continue;
       /* a repeated phase set means the add-then-remove order is cycling: switch to remove-then-add, then give up */
@@ -432,9 +445,11 @@ function equilibrate(b, T, P, gam, warm) {
       }
       let worst = -1, wv = -1e-14;
       for (let c = 0; c < nC; c++) if (active[c] && ncond[c] < wv) { wv = ncond[c]; worst = c; }
-      if (removeFirst && worst >= 0) { active[worst] = 0; ncond[worst] = 0; continue; }
-      if (best >= 0) { active[best] = 1; ncond[best] = 0; continue; }
-      if (worst >= 0) { active[worst] = 0; ncond[worst] = 0; continue; }
+      const tAdd = c => { if (trace) trace.push({ ev: 'add', id: SP[pure[c]].id, it: iters, a: Math.exp(-bv) }); };
+      const tRem = c => { if (trace) trace.push({ ev: 'remove', id: SP[pure[c]].id, it: iters }); };
+      if (removeFirst && worst >= 0) { tRem(worst); active[worst] = 0; ncond[worst] = 0; continue; }
+      if (best >= 0) { tAdd(best); active[best] = 1; ncond[best] = 0; continue; }
+      if (worst >= 0) { tRem(worst); active[worst] = 0; ncond[worst] = 0; continue; }
       return true;
     }
     return false;
@@ -779,6 +794,207 @@ function reactionTable(T) {
   });
 }
 
+
+/* ================= furnace cell model =================
+   A vertical cross-section of a side-blown bath on an nx by ny grid (two tuyere rows at the side walls, bottom row).
+   Per time step:
+   1. slag (with its enthalpy) moves between neighbouring cells along a prescribed circulation: two counter-rotating loops
+      from a stream function on the cell corners, explicit upwind exchange limited by a Courant number of 0.8,
+   2. feeds enter: blast and coal at the tuyere cells (a share of the coal is carried up the wall columns), aluminium at the
+      tuyere cells, cold charge at the top centre; wall cells lose heat,
+   3. cells are solved row by row from the bottom: Gibbs minimisation of the cell contents plus the gas arriving from below,
+      at the temperature that closes the cell heat balance; the gas then rises to the cell above, a share to the inner neighbour,
+      and leaves the furnace from the top row. Pressure includes the hydrostatic head of the slag above the cell.
+   Every cell is solved in every step. */
+const RHO_SLAG = 3500, GRAV = 9.80665;
+function createCellModel(inp, cfg) {
+  const feeds = buildFeeds(inp), warn = feeds.warn.slice(), act = ACT;
+  if ((inp.blast.pc || 0) > 0) warn.push('The two-zone setting under Blast is not used here. The cell model follows the gas through the bath instead.');
+  const nx = Math.max(2, 2 * Math.round((cfg.nx || 8) / 2)), ny = Math.max(1, Math.round(cfg.ny || 5)), N = nx * ny, half = nx / 2;
+  const total = Math.max(inp.batch.time, 1) * 60;
+  const fixed = inp.thermal === 'fixed';
+  const Ptop = inp.op.P * 1.01325, depth = Math.max(cfg.depth || 0, 0);
+  const Prow = j => Ptop + RHO_SLAG * GRAV * depth * (1 - (j + 0.5) / ny) / 1e5;
+  const id = (i, j) => i + nx * j;
+  const Tstart = (fixed ? inp.op.T : inp.slag.T) + 273.15, Tfix = fixed ? inp.op.T + 273.15 : null;
+  const mRef = feeds.hot.mass / N;
+  const cells = [];
+  for (let c = 0; c < N; c++) { const n = feeds.hot.n.map(v => v / N); cells.push({ n, H: enthalpy(n, inp.slag.T + 273.15), T: Tstart, warm: null }); }
+
+  /* circulation from a stream function on the cell corners: two loops rising at the side walls */
+  const tauS = Math.max(cfg.tau || 0, 0) * 60;
+  let Psi = tauS > 0 && nx >= 4 && ny >= 2 ? feeds.hot.mass / (2 * tauS) : 0;
+  const psi = (i, j) => -Psi * Math.sin(2 * Math.PI * i / nx) * Math.sin(Math.PI * j / ny);
+  const buildFaces = () => {
+    const f = [];
+    for (let j = 0; j < ny; j++) for (let i = 1; i < nx; i++) { const F = psi(i, j + 1) - psi(i, j); if (Math.abs(F) > 1e-12 * Math.abs(Psi)) f.push(F > 0 ? { a: id(i - 1, j), b: id(i, j), F } : { a: id(i, j), b: id(i - 1, j), F: -F }); }
+    for (let j = 1; j < ny; j++) for (let i = 0; i < nx; i++) { const F = -(psi(i + 1, j) - psi(i, j)); if (Math.abs(F) > 1e-12 * Math.abs(Psi)) f.push(F > 0 ? { a: id(i, j - 1), b: id(i, j), F } : { a: id(i, j), b: id(i, j - 1), F: -F }); }
+    return f;
+  };
+  let faces = Psi > 0 ? buildFaces() : [];
+  const outRate = () => { const o = new Float64Array(N); faces.forEach(f => { o[f.a] += f.F / mRef; }); return Math.max.apply(null, Array.from(o).concat([0])); };
+  const CFL = 0.8, MAXSTEPS = 3000;
+  let dt = Math.min(Math.max(inp.batch.dt, 0.05) * 60, total), mo = outRate();
+  if (mo > 0) dt = Math.min(dt, CFL / mo);
+  let steps = Math.ceil(total / dt - 1e-9);
+  if (steps > MAXSTEPS) {
+    steps = MAXSTEPS; const scale = (CFL / (total / steps)) / mo; Psi *= scale; faces = buildFaces();
+    warn.push('The circulation was slowed to ' + (tauS / 60 / scale).toFixed(1) + ' min per loop to keep the step count at ' + MAXSTEPS + '. Use fewer cells or a longer circulation time.');
+  }
+  dt = total / steps; const dtH = dt / 3600;
+
+  /* where the feeds enter */
+  const tl = id(0, 0), tr = id(nx - 1, 0);
+  const wBl = new Float64Array(N), wCoal = new Float64Array(N), wAl = new Float64Array(N), wCold = new Float64Array(N), wWall = new Float64Array(N);
+  wBl[tl] += 0.5; wBl[tr] += 0.5;
+  const e = ny > 1 ? Math.min(Math.max((cfg.entrain || 0) / 100, 0), 1) : 0;
+  wCoal[tl] += 0.5 * (1 - e); wCoal[tr] += 0.5 * (1 - e);
+  for (let j = 1; j < ny; j++) { wCoal[id(0, j)] += 0.5 * e / (ny - 1); wCoal[id(nx - 1, j)] += 0.5 * e / (ny - 1); }
+  if (cfg.alSide === 'left') wAl[tl] = 1; else { wAl[tl] += 0.5; wAl[tr] += 0.5; }
+  wCold[id(half - 1, ny - 1)] += 0.5; wCold[id(half, ny - 1)] += 0.5;
+  let wsum = 0;
+  for (let j = 0; j < ny; j++) { wWall[id(0, j)] += 1; wWall[id(nx - 1, j)] += 1; wsum += 2; }
+  for (let i = 0; i < nx; i++) { wWall[id(i, 0)] += 1; wsum += 1; }
+  for (let c = 0; c < N; c++) wWall[c] /= wsum;
+  const lossW = inp.op.loss * 1e6;
+  const spread = half > 1 ? Math.min(Math.max((cfg.spread || 0) / 100, 0), 0.9) : 0;
+  const inner = i => (i < half ? (i + 1 < half ? i + 1 : -1) : (i - 1 >= half ? i - 1 : -1));
+  const frameEvery = Math.max(1, Math.round(Math.max(cfg.frameMin || 2, dt / 60) * 60 / dt));
+
+  /* bookkeeping for the conservation audit and the summary */
+  const elemIn = elemOf(feeds.hot.n); let Hin0 = 0; cells.forEach(c => { Hin0 += c.H; });
+  let HinFeeds = 0, lossCum = 0;
+  const offgas = new Float64Array(NS); let Hoff = 0, znCum = 0, pbCum = 0;
+  const znFeed = feeds.hot.b[EI.Zn] + feeds.cld.b[EI.Zn], pbFeed = feeds.hot.b[EI.Pb] + feeds.cld.b[EI.Pb];
+  const frames = []; let k = 0, allConv = true, hitBound = 0, solves = 0;
+
+  /* cell temperature from the cell heat balance: H(T) of the equilibrium = H_in (secant, then bracketing) */
+  function solveCell(b, Hin, P, Tg, w, tlog) {
+    if (fixed) { solves++; return { eq: equilibrate(b, Tfix, P, act, w), T: Tfix, bound: 0 }; }
+    let T = Math.min(Math.max(Tg, TMIN), TMAX), eq = null, last = null, ww = w;
+    for (let it = 0; it < 14; it++) {
+      eq = equilibrate(b, T, P, act, ww); solves++; ww = eq.converged ? eq : null;
+      const val = enthalpy(eq.n, T) - Hin, cp = Math.max(heatCap(eq.n, T), 1e-9);
+      if (tlog) tlog.push({ T, f: val, cp });
+      if (Math.abs(val) < cp * 0.01) return { eq, T, bound: 0 };
+      let Tn = last && Math.abs(val - last.val) > 0 && Math.abs(T - last.T) > 1e-7 ? T - val * (T - last.T) / (val - last.val) : T - val / cp;
+      if (!isFinite(Tn)) Tn = T - val / cp;
+      Tn = Math.min(Math.max(Tn, T - 200), T + 200);
+      if (Tn <= TMIN && T <= TMIN + 1e-9 || Tn >= TMAX && T >= TMAX - 1e-9) return { eq, T, bound: Tn <= TMIN ? -1 : 1 };
+      Tn = Math.min(Math.max(Tn, TMIN), TMAX);
+      last = { T, val }; T = Tn;
+    }
+    const r = solveT(Tx => { eq = equilibrate(b, Tx, P, act, ww); solves++; ww = eq.converged ? eq : null; const v = enthalpy(eq.n, Tx) - Hin; if (tlog) tlog.push({ T: Tx, f: v }); return { val: v, slope: Math.max(heatCap(eq.n, Tx), 1), tol: 1e-9 * Math.abs(Hin) + 1 }; }, T, TMIN, TMAX);
+    if (eq.T !== r.T) { eq = equilibrate(b, r.T, P, act, ww); solves++; }
+    return { eq, T: r.T, bound: r.bound };
+  }
+
+  function step() {
+    if (k >= steps) return false;
+    const frame = (k + 1) % frameEvery === 0 || k === steps - 1;
+    /* 1. slag exchange between cells (explicit upwind, from the state at the start of the step) */
+    if (faces.length) {
+      const dn = [], dH = new Float64Array(N); for (let c = 0; c < N; c++) dn.push(new Float64Array(NS));
+      faces.forEach(f => {
+        const fr = f.F / mRef * dt, A = cells[f.a];
+        for (let i = 0; i < NS; i++) if (A.n[i] !== 0) { const m = A.n[i] * fr; dn[f.a][i] -= m; dn[f.b][i] += m; }
+        const h = A.H * fr; dH[f.a] -= h; dH[f.b] += h;
+      });
+      for (let c = 0; c < N; c++) { const n = cells[c].n; for (let i = 0; i < NS; i++) n[i] += dn[c][i]; cells[c].H += dH[c]; }
+    }
+    /* 2. and 3. feeds, wall loss, and the upward march of the gas */
+    const gasIn = new Array(N).fill(null), HgasIn = new Float64Array(N);
+    const snap = frame ? [] : null, fc = frame ? [] : null;
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const c = id(i, j), cell = cells[c], P = Prow(j);
+      let Hcold = 0;
+      if (wCold[c] > 0 && feeds.cld.mass > 0) { const fr = wCold[c] * dt / total; for (let q = 0; q < NS; q++) cell.n[q] += feeds.cld.n[q] * fr; cell.H += feeds.cld.H * fr; Hcold = feeds.cld.H * fr; HinFeeds += Hcold; for (let q = 0; q < NE; q++) elemIn[q] += feeds.cld.b[q] * fr; }
+      const qw = fixed ? 0 : lossW * wWall[c] * dt; cell.H -= qw; lossCum += qw;
+      const fb = new Float64Array(NE); let Hf = 0;
+      const fparts = [];
+      [['Coal', feeds.coal, wCoal[c]], ['Aluminium', feeds.al, wAl[c]], ['Blast', feeds.bl, wBl[c]]].forEach(sw => {
+        if (!(sw[2] > 0)) return; const fbb = new Float64Array(NE); let any = false;
+        for (let q = 0; q < NE; q++) { const v = sw[1].b[q] * dtH * sw[2]; if (v !== 0) any = true; fbb[q] = v; fb[q] += v; }
+        if (any) { const h = sw[1].H * dtH * sw[2]; Hf += h; fparts.push({ name: sw[0], b: fbb, H: h, mass: sw[1].mass * dtH * sw[2] }); }
+      });
+      HinFeeds += Hf; for (let q = 0; q < NE; q++) elemIn[q] += fb[q];
+      const g = gasIn[c];
+      const b = elemOf(cell.n); if (g) { const bg = elemOf(g); for (let q = 0; q < NE; q++) b[q] += bg[q]; } for (let q = 0; q < NE; q++) b[q] += fb[q];
+      const Hin = cell.H + HgasIn[c] + Hf;
+      if (frame) snap.push({ n: Float64Array.from(cell.n), H: cell.H, gas: g ? Float64Array.from(g) : null, Hgas: HgasIn[c], fb, Hf, fparts, qw, Hcold, P, Tg: cell.T });
+      const r = solveCell(b, Hin, P, cell.T, cell.warm, null), eq = r.eq, T = r.T;
+      cell.warm = eq.converged ? eq : null; allConv = allConv && eq.converged; if (r.bound) hitBound = r.bound;
+      const out = new Float64Array(NS); let any = false;
+      for (let q = 0; q < NS; q++) { if (SP[q].phase === 'gas') { out[q] = eq.n[q]; if (eq.n[q] > 0) any = true; cell.n[q] = 0; } else cell.n[q] = eq.n[q]; }
+      const Hout = any ? enthalpy(out, T) : 0;
+      /* keep exactly the enthalpy that did not leave with the gas, so the temperature tolerance cannot leak energy */
+      cell.T = T; cell.H = fixed ? enthalpy(cell.n, T) : Hin - Hout;
+      const znOut = out[SI['Zn(g)']];
+      let dest = 'off-gas';
+      if (any) {
+        if (j === ny - 1) { for (let q = 0; q < NS; q++) offgas[q] += out[q]; Hoff += Hout; znCum += znOut; pbCum += out[SI['Pb(g)']] + out[SI['PbO(g)']] + out[SI['PbS(g)']]; }
+        else {
+          const ii = inner(i), s2 = ii >= 0 ? spread : 0, up = id(i, j + 1);
+          if (!gasIn[up]) gasIn[up] = new Float64Array(NS);
+          for (let q = 0; q < NS; q++) gasIn[up][q] += out[q] * (1 - s2);
+          HgasIn[up] += Hout * (1 - s2);
+          dest = 'cell ' + (i + 1) + ',' + (j + 2) + (s2 > 0 ? ' (' + Math.round(100 * (1 - s2)) + ' %) and cell ' + (ii + 1) + ',' + (j + 2) + ' (' + Math.round(100 * s2) + ' %)' : '');
+          if (s2 > 0) { const u2 = id(ii, j + 1); if (!gasIn[u2]) gasIn[u2] = new Float64Array(NS); for (let q = 0; q < NS; q++) gasIn[u2][q] += out[q] * s2; HgasIn[u2] += Hout * s2; }
+        }
+      }
+      if (frame) {
+        const d = describe(eq, P); let gm = 0; for (let q = 0; q < NS; q++) gm += out[q];
+        snap[snap.length - 1].dest = dest;
+        fc.push({ T: T - 273.15, Zn: d.el.Zn, Pb: d.el.Pb, fe3: 100 * d.fe3, lpO2: d.pO2 > 0 ? Math.log10(d.pO2) : NaN, pZn: d.pZn, coco2: d.coco2, aFe: Math.min(d.aFe, 1),
+          rate: (znOut - (g ? g[SI['Zn(g)']] : 0)) * AW.Zn / 1000 / (dt / 60), gas: gm / dt / NM3 * 3600, mass: d.slagMass, hasGas: any, P,
+          pure: Object.keys(d.solids).filter(x => d.solids[x] > 1e-9), iters: eq.iters, conv: eq.converged });
+      }
+    }
+    k++;
+    if (frame) {
+      let zn = 0, ms = 0, Tmin = Infinity, Tmax = -Infinity, Tm = 0;
+      cells.forEach(c => { const m = massOf(c.n, 'slag'); ms += m; zn += c.n[SI.ZnO] * AW.Zn / 1000; Tmin = Math.min(Tmin, c.T); Tmax = Math.max(Tmax, c.T); Tm += c.T * m; });
+      frames.push({ t: k * dt / 60, step: k, cells: fc, snap, bulk: { Zn: 100 * zn / ms, rec: znFeed > 0 ? 100 * znCum / znFeed : 0, Tmin: Tmin - 273.15, Tmax: Tmax - 273.15, Tavg: Tm / ms - 273.15, slag: ms } });
+    }
+    return k < steps;
+  }
+
+  /* relative closure of the element and energy balances over everything computed so far */
+  function audit() {
+    const have = elemOf(offgas); let Hc = 0;
+    cells.forEach(c => { const bc = elemOf(c.n); for (let q = 0; q < NE; q++) have[q] += bc[q]; Hc += c.H; });
+    let eerr = 0, tot = 0; for (let q = 0; q < NE; q++) tot += elemIn[q];
+    for (let q = 0; q < NE; q++) eerr = Math.max(eerr, Math.abs(have[q] - elemIn[q]) / tot);
+    const hin = Hin0 + HinFeeds, herr = fixed ? 0 : Math.abs(Hc + Hoff + lossCum - hin) / Math.max(Math.abs(Hin0), 1);
+    return { elements: eerr, energy: herr };
+  }
+  function summary() {
+    const last = frames[frames.length - 1], g = gasFractions(offgas);
+    return { znRec: znFeed > 0 ? 100 * znCum / znFeed : NaN, pbRec: pbFeed > 0 ? 100 * pbCum / pbFeed : NaN, bulk: last ? last.bulk : null, offgas: g, converged: allConv, bound: hitBound, solves, steps, dt, done: k >= steps, k };
+  }
+  /* Everything about one cell at one recorded frame, solved again from a cold start with the solver trace switched on. */
+  function inspect(fi, c) {
+    const fr = frames[fi]; if (!fr) return null; const sn = fr.snap[c], i = c % nx, j = (c - i) / nx;
+    const bCell = elemOf(sn.n), bGas = sn.gas ? elemOf(sn.gas) : new Float64Array(NE), b = new Float64Array(NE);
+    for (let q = 0; q < NE; q++) b[q] = bCell[q] + bGas[q] + sn.fb[q];
+    const Hin = sn.H + sn.Hgas + sn.Hf, tlog = [];
+    let T = Tfix;
+    if (!fixed) {
+      let w = null, eq0 = null;
+      const r = solveT(Tx => { eq0 = equilibrate(b, Tx, sn.P, act, w); w = eq0.converged ? eq0 : null; const v = enthalpy(eq0.n, Tx) - Hin; tlog.push({ T: Tx, f: v }); return { val: v, slope: Math.max(heatCap(eq0.n, Tx), 1), tol: 1e-10 * Math.abs(Hin) + 1e-3 }; }, sn.Tg, TMIN, TMAX);
+      T = r.T;
+    }
+    const trace = [], eq = equilibrate(b, T, sn.P, act, null, trace);
+    const cond = new Float64Array(NS), gout = new Float64Array(NS);
+    for (let q = 0; q < NS; q++) { if (SP[q].phase === 'gas') gout[q] = eq.n[q]; else cond[q] = eq.n[q]; }
+    const nb = [];
+    faces.forEach(f => { if (f.a === c || f.b === c) { const o = f.a === c ? f.b : f.a; nb.push({ i: o % nx, j: (o - o % nx) / nx, out: f.a === c, F: f.F, share: f.F / mRef * dt }); } });
+    return { i, j, t: fr.t, dt, P: sn.P, T, fixed, b, bCell, bGas, bFeed: sn.fb, fparts: sn.fparts, nCell: sn.n, nGas: sn.gas, eq, trace, tlog, d: describe(eq, sn.P), act, dest: sn.dest,
+      heat: { cell: sn.H + sn.qw - sn.Hcold, cold: sn.Hcold, wall: sn.qw, gasIn: sn.Hgas, feed: sn.Hf, cond: enthalpy(cond, T), gasOut: enthalpy(gout, T), Hin }, neighbours: nb, mRef };
+  }
+  return { nx, ny, N, steps, dt, frames, step, audit, summary, inspect, warn, faces, mRef, Prow, feeds, tuyeres: [tl, tr], circulation: Psi, frameEvery, coldCells: [id(half - 1, ny - 1), id(half, ny - 1)], coalCells: Array.from(wCoal).map((w, c) => w > 0 ? c : -1).filter(c => c >= 0) };
+}
+
 /* every standard-state record the model uses, with its formula and role, for mapping external data */
 function thermoKeys() {
   const out = [], seen = {};
@@ -798,4 +1014,4 @@ function thermoKeys() {
 function getActivity() { return ACT; }
 const FumeEngine = { R, T0, AW, ELS, EI, SP, SI, NS, NE, MOX, props, builtinProps, builtinRecord, evalRecord, setThermoOverrides, thermoKeys, activityModel, setActivity, getActivity, IDEAL, SLAG_ACT,
   gamOf, checkActivity, spProps, equilibrate, enthalpy, heatCap, buildFeeds, slagPerKg,
-  hhvEstimate, describe, runContinuous, runBatch, run, reactionTable, elemOf, massOf, TMIN, TMAX, NM3 };
+  hhvEstimate, describe, runContinuous, runBatch, run, reactionTable, elemOf, massOf, TMIN, TMAX, NM3, createCellModel, gasFractions, REACTIONS };

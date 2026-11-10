@@ -29,6 +29,7 @@
         <button role="tab" id="tabbtn-heat" data-tab="heat" aria-selected="true">Heat balance</button>
         <button role="tab" id="tabbtn-eq" data-tab="eq" aria-selected="false">Equilibrium</button>
         <button role="tab" id="tabbtn-cycle" data-tab="cycle" aria-selected="false">Cycle</button>
+        <button role="tab" id="tabbtn-furnace" data-tab="furnace" aria-selected="false">Furnace</button>
         <button role="tab" id="tabbtn-sweep" data-tab="sweep" aria-selected="false">Sweep</button>
         <button role="tab" id="tabbtn-db" data-tab="db" aria-selected="false">Database</button>
         <button role="tab" id="tabbtn-formulas" data-tab="formulas" aria-selected="false">Formulas</button>
@@ -74,6 +75,38 @@
           <div class="toolbar"><button class="btn ghost" id="cycle-copy" type="button">Copy data as CSV</button><span class="note" id="cycle-copy-msg"></span></div>
           <div id="cycle-copy-box"></div>
           <details class="data"><summary>Show data table</summary><div class="scroll"><table id="cycle-table"></table></div></details>
+        </div>
+      </section>
+
+      <section class="panel" id="tab-furnace" role="tabpanel" aria-labelledby="tabbtn-furnace" hidden>
+        <div class="block">
+          <header><h2>Furnace cell model</h2><p id="fu-basis">Batch inputs on the left: charge, cycle time and feeds. Each cell is solved by Gibbs energy minimisation in every time step.</p></header>
+          <div class="toolbar">
+            <div class="field"><label for="fu-nx">Cells across</label><div class="box"><input type="number" id="fu-nx" min="2" max="16" step="2"></div></div>
+            <div class="field"><label for="fu-ny">Cells deep</label><div class="box"><input type="number" id="fu-ny" min="1" max="8" step="1"></div></div>
+            <div class="field"><label for="fu-tau">Circulation, one loop</label><div class="box"><input type="number" id="fu-tau" min="0" max="60" step="0.5"><span class="unit">min</span></div></div>
+            <div class="field"><label for="fu-spread">Gas to inner cell</label><div class="box"><input type="number" id="fu-spread" min="0" max="90" step="5"><span class="unit">%</span></div></div>
+            <div class="field"><label for="fu-depth">Bath depth</label><div class="box"><input type="number" id="fu-depth" min="0" max="4" step="0.1"><span class="unit">m</span></div></div>
+            <div class="field"><label for="fu-entrain">Coal carried up wall</label><div class="box"><input type="number" id="fu-entrain" min="0" max="100" step="5"><span class="unit">%</span></div></div>
+            <div class="field wide"><label for="fu-al">Aluminium enters</label><select id="fu-al"><option value="both">at both tuyeres</option><option value="left">at the left tuyere only</option></select></div>
+            <button class="btn" id="fu-run" type="button">Run furnace</button>
+          </div>
+          <div class="progress" id="fu-prog" hidden><div class="pbar"><i id="fu-pbar"></i></div><span class="note" id="fu-ptext"></span></div>
+          <div id="fu-msg" class="status"></div>
+        </div>
+        <div class="fgrid" id="fu-out" hidden>
+          <div class="block">
+            <div class="toolbar">
+              <div class="field wide"><label for="fu-var">Colour cells by</label><select id="fu-var"></select></div>
+              <button class="btn ghost" id="fu-play" type="button">Play</button>
+              <div class="field grow"><label for="fu-time" id="fu-tlabel">Time</label><input type="range" id="fu-time" min="0" max="0" step="1" value="0"></div>
+            </div>
+            <div class="fmap" id="fu-map"></div>
+            <div class="flegend" id="fu-legend"></div>
+            <p class="note">Click a cell, or use the arrow keys on the map, to see how it was solved. Tuyeres are marked at the bottom of the side walls; cold charge enters at the top centre; gas leaves through the top row.</p>
+            <div class="facts" id="fu-facts"></div>
+          </div>
+          <div class="block insp" id="fu-insp"></div>
         </div>
       </section>
 
@@ -171,6 +204,9 @@
             <li><b>Batch cycle.</b> The bath is brought to equilibrium with each time increment of blast, coal and aluminium. The gas then leaves and the next increment meets the remaining bath. Cold charge is fed evenly over the cycle.</li>
             <li><b>Continuous.</b> One well-mixed stage. Product slag and off-gas leave in equilibrium with each other.</li>
           </ul>
+          <h2>Furnace cell model</h2>
+          <p>The Furnace tab resolves the batch cycle in space. A vertical cross-section of the bath is divided into cells. Slag circulates between them in two loops that rise at the side walls. Blast, coal and aluminium enter at the tuyere cells, and the gas rises cell by cell to the top. In every time step every cell is solved by the same Gibbs energy minimisation and heat balance as the rest of the page, with the pressure raised by the slag above it. The equations are in the section "Furnace cell model" on the Formulas tab. Clicking a cell shows every equation used for it with its numbers: the element balance, the heat balance and the temperature iterations, the Newton iterations with the element potentials, the chemical potential of every species, and the bath equilibria.</p>
+          <p>The time step is limited so that a cell exchanges at most 80 % of its slag per step, which is usually shorter than the batch time step on the left. With two cells, no circulation and no bath depth the cell model reproduces the well-mixed batch cycle (zinc recovery 72.1775 % against 72.1776 %). On every grid tested the element and energy balances of the whole furnace close to 10<sup>−13</sup> of the input. The circulation pattern, the share of gas that moves inward and the share of coal carried up the wall are prescribed, not computed from fluid flow. Use them to explore the effect of mixing, or set them from CFD results.</p>
           <h2>Phases and species</h2>
           <ul>
             <li><b>Gas</b> (ideal, standard pressure 1 bar): N<sub>2</sub>, O<sub>2</sub>, CO, CO<sub>2</sub>, H<sub>2</sub>, H<sub>2</sub>O, CH<sub>4</sub>, Zn, Pb, PbO, PbS, SO<sub>2</sub>, H<sub>2</sub>S, S<sub>2</sub>, COS. Radicals such as O, OH and H are left out. They change the adiabatic flame temperature of CO in air by 14 K but are negligible at bath temperatures.</li>

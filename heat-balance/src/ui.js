@@ -15,7 +15,7 @@
     'gam.ZnO': 2.0, 'gam.PbO': 0.3, 'gam.FeO': 1.0, 'gam.FeO15': 1.5, 'gam.Tref': 1250
   };
   const state = { mode: 'batch', thermal: 'auto', hhvAuto: true, tab: 'heat', gamT: 'const' };
-  const TABS = ['heat', 'eq', 'cycle', 'sweep', 'db', 'formulas', 'model'];
+  const TABS = ['heat', 'eq', 'cycle', 'furnace', 'sweep', 'db', 'formulas', 'model'];
   // [key, label, unit, min, max, step, show]
   const F = (k, label, unit, min, max, step, show) => ({ k, label, unit, min, max, step: step || 'any', show });
   const GROUPS = [
@@ -61,7 +61,7 @@
   function save() {
     try {
       const vals = {}; for (const k in DEFAULTS) { const i = $(inId(k)); if (i) vals[k] = i.value; }
-      localStorage.setItem(STORE, JSON.stringify({ vals, mode: state.mode, thermal: state.thermal, hhvAuto: state.hhvAuto, tab: state.tab, gamT: state.gamT }));
+      localStorage.setItem(STORE, JSON.stringify({ vals, mode: state.mode, thermal: state.thermal, hhvAuto: state.hhvAuto, tab: state.tab, gamT: state.gamT, fu: FU.cfg }));
     } catch (e) { /* storage unavailable */ }
   }
 
@@ -673,6 +673,245 @@
     }
   }
 
+
+  /* ---------- furnace cell model ---------- */
+  const FU_DEF = { nx: 6, ny: 4, tau: 3, spread: 25, depth: 1, entrain: 20, al: 'both' };
+  const FU = { cfg: Object.assign({}, FU_DEF), sim: null, key: null, fi: 0, sel: 0, v: 'T', running: false, play: null, scale: {}, ref: null, ms: 0 };
+  const FU_VARS = [['T', 'Temperature', '°C', 0], ['Zn', 'Zn in slag', 'wt%', 2], ['rate', 'Zinc fumed in the cell', 'kg/min', 2], ['lpO2', 'Oxygen potential, log pO₂', 'atm', 2],
+    ['fe3', 'Ferric share of iron', '%', 1], ['aFe', 'Iron activity', '', 3], ['gas', 'Gas leaving the cell', 'Nm³/h', 0], ['P', 'Pressure', 'bar', 3]];
+  const FU_LIM = { nx: [2, 16, 2], ny: [1, 8, 1], tau: [0, 60, 0], spread: [0, 90, 0], depth: [0, 4, 0], entrain: [0, 100, 0] };
+  const eqn = l => (typeof FORMULA_NUM !== 'undefined' && FORMULA_NUM[l]) ? '(' + FORMULA_NUM[l] + ')' : '';
+  /* colour ramps interpolated in OKLab between theme tokens */
+  const toLin = c => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4), toS = c => c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+  function hexRgb(h) { h = String(h).trim().replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16) / 255); }
+  function toLab(c) { const [r, g, b] = c.map(toLin), l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s, 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s]; }
+  function fromLab([L, a, b]) { const l = Math.pow(L + 0.3963377774 * a + 0.2158037573 * b, 3), m = Math.pow(L - 0.1055613458 * a - 0.0638541728 * b, 3), s = Math.pow(L - 0.0894841775 * a - 1.2914855480 * b, 3);
+    return '#' + [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s].map(c => Math.round(255 * Math.min(1, Math.max(0, toS(c)))).toString(16).padStart(2, '0')).join(''); }
+  function mix(a, b, t) { const A = toLab(hexRgb(a)), B = toLab(hexRgb(b)); return fromLab(A.map((v, i) => v + (B[i] - v) * t)); }
+  const lightness = h => toLab(hexRgb(h))[0];
+  function tok(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function colourOf(v, sc) {
+    if (!isFinite(v)) return tok('--surface-2');
+    if (sc.div) { const m = Math.max(Math.abs(sc.lo), Math.abs(sc.hi)) || 1, t = Math.max(-1, Math.min(1, v / m)); return t >= 0 ? mix(tok('--div-mid'), tok('--seq-hi'), t) : mix(tok('--div-mid'), tok('--div-neg'), -t); }
+    const t = sc.hi > sc.lo ? (v - sc.lo) / (sc.hi - sc.lo) : 0.5; return mix(tok('--seq-lo'), tok('--seq-hi'), Math.max(0, Math.min(1, t)));
+  }
+  const fuVal = (c, k) => k === 'P' ? c.P : c[k];
+  function fuScales() {
+    FU.scale = {};
+    FU_VARS.forEach(([k]) => { let lo = Infinity, hi = -Infinity; FU.sim.frames.forEach(f => f.cells.forEach(c => { const v = fuVal(c, k); if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } })); FU.scale[k] = { lo, hi, div: k === 'rate' && lo < -1e-6 }; });
+  }
+  function fuCfg() {
+    const c = {};
+    for (const k in FU_LIM) { const i = $('fu-' + k); let v = parseFloat(i.value); const [lo, hi] = FU_LIM[k]; const bad = !isFinite(v) || v < lo || v > hi; i.setAttribute('aria-invalid', bad ? 'true' : 'false'); if (!isFinite(v)) v = FU_DEF[k]; c[k] = Math.min(hi, Math.max(lo, v)); }
+    c.nx = Math.max(2, 2 * Math.round(c.nx / 2)); c.ny = Math.round(c.ny); c.al = $('fu-al').value; return c;
+  }
+  function fuInp() { const inp = readInp(); inp.mode = 'batch'; inp.slag.rate = inp.slag.rateB; return inp; }
+  const fuKey = (inp, cfg) => JSON.stringify([inp, cfg, Object.keys(activeOverrides())]);
+  function setupFurnace(saved) {
+    if (saved && saved.fu) for (const k in FU_DEF) if (saved.fu[k] !== undefined) FU.cfg[k] = saved.fu[k];
+    for (const k in FU_LIM) $('fu-' + k).value = FU.cfg[k];
+    $('fu-al').value = FU.cfg.al;
+    for (const k in FU_LIM) $('fu-' + k).addEventListener('input', () => { FU.cfg = fuCfg(); save(); fuStale(); });
+    $('fu-al').addEventListener('change', () => { FU.cfg = fuCfg(); save(); fuStale(); });
+    const vs = $('fu-var'); FU_VARS.forEach(([k, l, u]) => { const o = el('option', null, l + (u ? ', ' + u : '')); o.value = k; vs.appendChild(o); });
+    vs.addEventListener('change', () => { FU.v = vs.value; drawMap(); });
+    $('fu-run').addEventListener('click', fuRun);
+    $('fu-time').addEventListener('input', () => { FU.fi = +$('fu-time').value; drawMap(); renderInsp(); });
+    $('fu-play').addEventListener('click', () => {
+      if (FU.play) { clearInterval(FU.play); FU.play = null; $('fu-play').textContent = 'Play'; return; }
+      if (!FU.sim) return; if (FU.fi >= FU.sim.frames.length - 1) FU.fi = 0;
+      $('fu-play').textContent = 'Pause';
+      FU.play = setInterval(() => { FU.fi++; if (FU.fi >= FU.sim.frames.length - 1) { FU.fi = FU.sim.frames.length - 1; clearInterval(FU.play); FU.play = null; $('fu-play').textContent = 'Play'; renderInsp(); } $('fu-time').value = FU.fi; drawMap(); }, 220);
+    });
+  }
+  function fuStale() {
+    if (!FU.sim || FU.running) return;
+    const h = $('fu-msg'); h.textContent = '';
+    if (fuKey(fuInp(), fuCfg()) !== FU.key) h.appendChild(msg('info', 'The inputs have changed since this run. Run the furnace again to update the map.'));
+  }
+  function fuRun() {
+    if (FU.running) { FU.running = false; return; }
+    const inp = fuInp(), cfg = fuCfg(); FU.cfg = cfg; save();
+    E.setThermoOverrides(activeOverrides());
+    let sim;
+    try { sim = E.createCellModel(inp, Object.assign({}, cfg, { alSide: cfg.al, frameMin: Math.max(1, inp.batch.time / 60) })); }
+    catch (e) { $('fu-msg').textContent = ''; $('fu-msg').appendChild(msg('crit', 'The furnace model could not start: ' + e.message)); return; }
+    if (FU.play) { clearInterval(FU.play); FU.play = null; $('fu-play').textContent = 'Play'; }
+    FU.running = true; $('fu-run').textContent = 'Stop'; $('fu-prog').hidden = false; $('fu-msg').textContent = '';
+    const t0 = performance.now();
+    const tick = () => {
+      const until = performance.now() + 45; let more = true;
+      while (more && FU.running && performance.now() < until) more = sim.step();
+      const sm = sim.summary(), fr = sm.k / sim.steps;
+      $('fu-pbar').style.width = (100 * fr).toFixed(1) + '%';
+      $('fu-ptext').textContent = 'Step ' + sm.k + ' of ' + sim.steps + ', ' + sm.solves + ' Gibbs solves';
+      if (more && FU.running) { setTimeout(tick, 0); return; }
+      const done = !more; FU.running = false; $('fu-run').textContent = 'Run furnace'; $('fu-prog').hidden = true;
+      if (!done || !sim.frames.length) { $('fu-msg').appendChild(msg('warn', 'Stopped before the end of the cycle.')); if (!sim.frames.length) return; }
+      FU.sim = sim; FU.key = fuKey(inp, cfg); FU.ms = performance.now() - t0; FU.fi = sim.frames.length - 1;
+      FU.sel = Math.min(FU.sel, sim.N - 1);
+      let ref = null; try { const r0 = E.run(inp); ref = { rec: r0.k.znRec, Zn: r0.d.el.Zn, T: r0.T - 273.15 }; } catch (e) { ref = null; }
+      FU.ref = ref; fuScales();
+      $('fu-time').max = sim.frames.length - 1; $('fu-time').value = FU.fi; $('fu-out').hidden = false;
+      const s = sim.summary(), a = sim.audit(), h = $('fu-msg');
+      if (!s.converged) h.appendChild(msg('crit', 'Some cell solves did not converge. Treat the map as unreliable.'));
+      if (s.bound) h.appendChild(msg('crit', 'A cell reached the temperature limit of the model (800 or 2000 °C).'));
+      sim.warn.forEach(w => h.appendChild(msg('warn', w)));
+      if (s.converged && !s.bound) h.appendChild(msg('ok', 'Solved ' + sim.N + ' cells in ' + sim.steps + ' steps of ' + fx(sim.dt, 1) + ' s (' + s.solves + ' Gibbs solves, ' + fx(FU.ms / 1000, 1) + ' s). The element and energy balances of the whole furnace close to ' + e2(a.elements) + ' and ' + e2(a.energy) + ' of the input.'));
+      drawMap(); renderInsp();
+    };
+    setTimeout(tick, 0);
+  }
+  function renderFurnace() {
+    if (!FU.sim && !FU.running) { fuRun(); return; }
+    if (FU.sim) { fuStale(); drawMap(); renderInsp(); }
+  }
+  function drawMap() {
+    const sim = FU.sim; if (!sim) return;
+    const host = $('fu-map'), fr = sim.frames[FU.fi], [k, lab, unit, dg] = FU_VARS.find(x => x[0] === FU.v), sc = FU.scale[k];
+    $('fu-tlabel').textContent = 'Time ' + fx(fr.t, 1) + ' of ' + fx(sim.frames[sim.frames.length - 1].t, 0) + ' min';
+    const W = Math.max(300, Math.min(720, host.clientWidth || 560)), pad = { l: 30, r: 30, t: 50, b: 50 }, wall = 7;
+    const cw = (W - pad.l - pad.r - 2 * wall) / sim.nx, ch = Math.min(cw * 0.8, 70), H = pad.t + pad.b + 2 * wall + ch * sim.ny - wall;
+    const svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'grid', tabindex: '0', 'aria-label': 'Furnace cross-section, ' + sim.nx + ' by ' + sim.ny + ' cells, coloured by ' + lab });
+    const x0 = pad.l + wall, y0 = pad.t, X = i => x0 + i * cw, Y = j => y0 + (sim.ny - 1 - j) * ch;
+    svg.appendChild(sv('rect', { class: 'wall', x: pad.l, y: y0, width: W - pad.l - pad.r, height: ch * sim.ny + wall, rx: 3 }));
+    fr.cells.forEach((c, n) => {
+      const i = n % sim.nx, j = (n - i) / sim.nx, v = fuVal(c, k), fill = colourOf(v, sc);
+      const r = sv('rect', { class: 'cell', x: X(i), y: Y(j), width: cw, height: ch, fill });
+      r.addEventListener('click', () => { FU.sel = n; drawMap(); renderInsp(); });
+      r.addEventListener('pointermove', ev => showTip(ev, fx(v, dg) + (unit ? ' ' + unit : ''), 'cell ' + (i + 1) + ',' + (j + 1) + ', ' + lab.toLowerCase()));
+      r.addEventListener('pointerleave', () => { tip.hidden = true; });
+      svg.appendChild(r);
+      if (cw >= 46 && isFinite(v)) { const t = sv('text', { class: 'lbl', x: X(i) + cw / 2, y: Y(j) + ch / 2 + 4, 'text-anchor': 'middle', fill: lightness(fill) > 0.62 ? '#14181b' : '#ffffff' }); t.textContent = fx(v, Math.max(0, dg - (Math.abs(v) >= 100 ? dg : 0))); svg.appendChild(t); }
+      /* gas leaving through the top */
+      if (j === sim.ny - 1 && c.hasGas) { const xm = X(i) + cw / 2, l = 8 + 14 * Math.min(1, c.gas / Math.max(FU.scale.gas.hi, 1)); svg.appendChild(sv('path', { class: 'gasarrow', d: 'M' + xm + ' ' + (y0 - 4) + 'V' + (y0 - 4 - l) + 'm-4 5l4-5l4 5' })); }
+    });
+    const si = FU.sel % sim.nx, sj = (FU.sel - si) / sim.nx;
+    svg.appendChild(sv('rect', { class: 'sel', x: X(si) + 1.5, y: Y(sj) + 1.5, width: cw - 3, height: ch - 3 }));
+    /* tuyeres, cold charge, labels */
+    const yt = Y(0) + ch / 2;
+    svg.appendChild(sv('path', { class: 'mark', d: 'M' + (pad.l - 2) + ' ' + (yt - 6) + 'L' + (pad.l + wall + 6) + ' ' + yt + 'L' + (pad.l - 2) + ' ' + (yt + 6) + 'Z' }));
+    svg.appendChild(sv('path', { class: 'mark', d: 'M' + (W - pad.r + 2) + ' ' + (yt - 6) + 'L' + (W - pad.r - wall - 6) + ' ' + yt + 'L' + (W - pad.r + 2) + ' ' + (yt + 6) + 'Z' }));
+    const xc = x0 + sim.nx * cw / 2;
+    svg.appendChild(sv('path', { class: 'mark', d: 'M' + (xc - 5) + ' ' + (y0 - 14) + 'L' + xc + ' ' + (y0 - 4) + 'L' + (xc + 5) + ' ' + (y0 - 14) + 'Z' }));
+    const tx = (x, y, s, a) => { const t = sv('text', { class: 'axt', x, y, 'text-anchor': a || 'middle' }); t.textContent = s; svg.appendChild(t); };
+    const yb = y0 + ch * sim.ny + wall;
+    tx(xc, y0 - 36, 'cold charge'); tx(pad.l, yb + 32, 'tuyere', 'start'); tx(W - pad.r, yb + 32, 'tuyere', 'end');
+    tx(xc, yb + 32, 'cell i across, j up');
+    for (let i = 0; i < sim.nx; i++) tx(X(i) + cw / 2, y0 + ch * sim.ny + wall + 16, String(i + 1));
+    for (let j = 0; j < sim.ny; j++) tx(pad.l - 12, Y(j) + ch / 2 + 4, String(j + 1));
+    svg.addEventListener('keydown', ev => {
+      let i = FU.sel % sim.nx, j = (FU.sel - i) / sim.nx;
+      if (ev.key === 'ArrowLeft') i = Math.max(0, i - 1); else if (ev.key === 'ArrowRight') i = Math.min(sim.nx - 1, i + 1);
+      else if (ev.key === 'ArrowUp') j = Math.min(sim.ny - 1, j + 1); else if (ev.key === 'ArrowDown') j = Math.max(0, j - 1); else return;
+      ev.preventDefault(); FU.sel = i + sim.nx * j; drawMap(); renderInsp(); const s2 = $('fu-map').querySelector('svg'); if (s2) s2.focus();
+    });
+    host.textContent = ''; host.appendChild(svg);
+    /* legend */
+    const lg = $('fu-legend'); lg.textContent = '';
+    lg.appendChild(el('span', null, lab + (unit ? ', ' + unit : '')));
+    const stops = sc.div ? [-1, -0.5, 0, 0.5, 1].map(t => colourOf(t * Math.max(Math.abs(sc.lo), Math.abs(sc.hi)), sc)) : [0, 0.25, 0.5, 0.75, 1].map(t => colourOf(sc.lo + t * (sc.hi - sc.lo), sc));
+    const lo = sc.div ? -Math.max(Math.abs(sc.lo), Math.abs(sc.hi)) : sc.lo, hi = sc.div ? Math.max(Math.abs(sc.lo), Math.abs(sc.hi)) : sc.hi;
+    lg.appendChild(el('span', 'num', fx(lo, dg))); const rp = el('span', 'ramp'); rp.style.background = 'linear-gradient(90deg,' + stops.join(',') + ')'; lg.appendChild(rp); lg.appendChild(el('span', 'num', fx(hi, dg)));
+    lg.appendChild(el('span', 'note', sc.div ? 'negative: zinc taken back into the slag' : 'scale fixed over the whole cycle'));
+    /* facts for this frame */
+    const fh = $('fu-facts'); fh.textContent = ''; const b = fr.bulk, s = sim.summary();
+    fact(fh, 'Zn recovery so far, %', fx(b.rec, 1));
+    fact(fh, 'Zn in slag, bath average, wt%', fx(b.Zn, 2));
+    fact(fh, 'Bath temperature, °C', fx(b.Tmin, 0) + ' to ' + fx(b.Tmax, 0));
+    fact(fh, 'Slag in the bath, t', fx(b.slag / 1000, 2));
+    if (FU.ref) { fact(fh, 'Well-mixed batch, Zn recovery %', fx(FU.ref.rec, 1)); fact(fh, 'Cell model, end of cycle, %', fx(s.znRec, 1)); }
+  }
+  /* every equation used for the selected cell, with its numbers */
+  function mkTable(head, rows, numCols) {
+    const t = el('table'), th = el('thead'), hr = el('tr'); head.forEach((h, j) => hr.appendChild(el('th', numCols.indexOf(j) >= 0 ? 'n' : null, h))); th.appendChild(hr); t.appendChild(th);
+    const tb = el('tbody'); rows.forEach(r => { const tr = el('tr', 'row' + (r.cls ? ' ' + r.cls : '')); r.c.forEach((c, j) => { const td = el('td', numCols.indexOf(j) >= 0 ? 'n' : null, c); if (r.span && j === 0) td.colSpan = head.length; tr.appendChild(td); }); tb.appendChild(tr); }); t.appendChild(tb);
+    const w = el('div', 'scroll'); w.appendChild(t); return w;
+  }
+  const eqLine = (text, ref) => { const d = el('div', 'eqline'); d.appendChild(document.createTextNode(text + '   ')); if (ref) d.appendChild(el('span', 'ref', ref)); return d; };
+  const e3 = x => !isFinite(x) ? '–' : (x !== 0 && (Math.abs(x) < 1e-3 || Math.abs(x) >= 1e6) ? x.toExponential(3).replace('-', '−').replace('e−', 'e−').replace(/e\+?/, 'e') : sig(x, 6));
+  const e2 = x => !isFinite(x) ? '–' : (x === 0 ? '0' : Math.abs(x) < 1e-3 || Math.abs(x) >= 1e5 ? x.toExponential(2).replace(/-/g, '−').replace('e+', 'e') : sig(x, 4));
+  function renderInsp() {
+    const sim = FU.sim, host = $('fu-insp'); if (!sim) return; host.textContent = '';
+    const q = sim.inspect(FU.fi, FU.sel), eq = q.eq, T = q.T, P = q.P, RT = E.R * T, SI = E.SI;
+    host.appendChild(el('h2', null, 'Cell ' + (q.i + 1) + ', ' + (q.j + 1) + ' at ' + fx(q.t, 1) + ' min'));
+    host.appendChild(el('p', 'note', 'Pressure ' + fx(P, 4) + ' bar including the slag above ' + eqn('cellP') + '. Time step ' + fx(q.dt, 1) + ' s. The solve is repeated here from a cold start with the solver trace on; it gives the state of the stepped run to ' + e2(Math.abs(T - 273.15 - sim.frames[FU.fi].cells[FU.sel].T)) + ' K. Equation numbers refer to the Formulas tab.'));
+    /* 1. inputs */
+    host.appendChild(el('h3', null, 'What the cell holds in this step'));
+    const mCell = E.massOf(q.nCell), gasMol = q.nGas ? q.nGas.reduce((a, v) => a + v, 0) : 0;
+    const ir = [{ c: ['Slag and solids in the cell after slag exchange ' + eqn('cellX'), fx(mCell, 1) + ' kg'] }, { c: ['Gas from the cell below', gasMol ? fx(gasMol, 3) + ' mol (' + fx(gasMol / E.NM3, 3) + ' Nm³)' : 'none'] }];
+    (q.fparts || []).forEach(f => ir.push({ c: [f.name + ' fed in this step', fx(f.mass, 3) + ' kg'] }));
+    if (q.heat.cold) ir.push({ c: ['Cold charge fed in this step', 'included in the cell'] });
+    host.appendChild(mkTable(['', 'Amount'], ir, [1]));
+    /* 2. element balance */
+    host.appendChild(el('h3', null, 'Element balance'));
+    host.appendChild(eqLine('b_j = Σ a_ij n_i(cell) + Σ a_ij n_i(gas below) + Δt Σ w_f ḃ_j,f ;   Σ_i a_ij n_i = b_j at the minimum', eqn('cellb') + ' ' + eqn('minG')));
+    const bOut = E.elemOf(eq.n), er = [];
+    E.ELS.forEach((e, k) => { if (!(q.b[k] > 0)) return; er.push({ c: [e === 'X' ? 'X (inert oxide)' : e, e3(q.bCell[k]), e3(q.bGas[k]), e3(q.bFeed[k]), e3(q.b[k]), e3(bOut[k]), e2(bOut[k] - q.b[k])] }); });
+    host.appendChild(mkTable(['Element, mol', 'Cell', 'Gas below', 'Feeds', 'b_j', 'Σ a_ij n_i', 'Difference'], er, [1, 2, 3, 4, 5, 6]));
+    /* 3. heat balance and temperature */
+    host.appendChild(el('h3', null, 'Heat balance and temperature'));
+    host.appendChild(eqLine('H_cell + H_gas,below + Δt Σ w_f Ḣ_f − w_wall Q̇_loss Δt = H_cond(T) + H_gas(T)', eqn('cellH')));
+    const hh = q.heat, MJ = x => fx(x / 1e6, 4);
+    const hr2 = [{ c: ['Cell contents after slag exchange', MJ(hh.cell)] }];
+    if (hh.cold) hr2.push({ c: ['Cold charge', MJ(hh.cold)] });
+    hr2.push({ c: ['Wall heat loss', MJ(-hh.wall)] }, { c: ['Gas from the cell below', MJ(hh.gasIn)] }, { c: ['Feeds', MJ(hh.feed)] }, { c: ['Total in, H_in', MJ(hh.Hin)], cls: 'tot' },
+      { c: ['Condensed phases at T', MJ(hh.cond)] }, { c: ['Gas at T', MJ(hh.gasOut)] }, { c: ['Total out', MJ(hh.cond + hh.gasOut)], cls: 'tot' }, { c: ['Out minus in', e2((hh.cond + hh.gasOut - hh.Hin) / 1e6)] });
+    host.appendChild(mkTable(['Enthalpy, MJ (elements at 25 °C = 0)', 'Value'], hr2, [1]));
+    if (q.fixed) host.appendChild(el('p', 'note', 'Fixed-temperature mode: T is set and there is no wall loss.'));
+    else if (q.tlog.length) host.appendChild(mkTable(['Trial', 'T, °C', 'f(T) = H_out − H_in, kJ'], q.tlog.map((x, n) => ({ c: [String(n + 1), fx(x.T - 273.15, 3), e2(x.f / 1000)] })), [1, 2]));
+    /* 4. Gibbs minimisation trace */
+    host.appendChild(el('h3', null, 'Gibbs energy minimisation'));
+    host.appendChild(eqLine('Δln n_i = Δln N_p + Σ_j a_ij π_j − μ_i/RT ;  solve for π_j, Δln N_p, Δn_c ;  step ω = min(1, 2 / max(5|Δln N_p|, |Δln n_i|))', eqn('dln') + ' ' + eqn('newtonel') + ' ' + eqn('omega')));
+    const els = ['O', 'C', 'Zn', 'Fe', 'S'].filter(e => q.b[E.EI[e]] > 0);
+    const trows = [];
+    q.trace.forEach(t => {
+      if (t.ev === 'it') trows.push({ c: [String(t.it), fx(t.step, 3), e2(t.err), e2(t.res)].concat(els.map(e => fx(t.pi[e], 4)), [t.pure.join(' ') || '–']) });
+      else if (t.ev !== 'start') trows.push({ span: true, cls: 'evt', c: [{ on: 'Phase switched on: ' + t.id + ' (saturation ' + sig(t.Q, 3) + ')', off: 'Phase switched off: ' + t.id, add: 'Pure phase added: ' + t.id + ' (activity ' + sig(t.a, 3) + ')', remove: 'Pure phase removed: ' + t.id + ' (negative amount)', sink: 'Reductant sink phase added', restart: 'Restart without the gas phase' }[t.ev] || t.ev] });
+    });
+    const tw = mkTable(['Iteration', 'ω', 'max |Δ|', 'Element residual, mol'].concat(els.map(e => 'π ' + e), ['Pure phases']), trows, [1, 2, 3].concat(els.map((_, n) => 4 + n))); tw.classList.add('tall'); host.appendChild(tw);
+    host.appendChild(el('p', 'note', eq.iters + ' Newton iterations, converged: ' + (eq.converged ? 'yes' : 'no') + '. π_j = λ_j/RT are the element potentials.'));
+    /* 5. species at the minimum */
+    host.appendChild(el('h3', null, 'Chemical potentials at the minimum'));
+    host.appendChild(eqLine('gas: μ/RT = g°/RT + ln(P/P°) + ln x ;  slag: μ/RT = g°/RT + ln γ + ln x ;  present species: μ/RT = Σ_j a_ij π_j', eqn('gasmu') + ' ' + eqn('slagmu') + ' ' + eqn('kkt')));
+    const piSum = i => { let s = 0; for (let k = 0; k < E.NE; k++) if (E.SP[i].a[k]) { const v = eq.pi[k]; if (!isFinite(v)) return NaN; s += E.SP[i].a[k] * v; } return s; };
+    const srows = [];
+    E.SP.forEach((sp, i) => {
+      if (sp.phase === 'pure' || !(eq.n[i] > 0)) return;
+      const tot = eq.phaseMol[sp.phase], x = eq.n[i] / tot, p0 = E.spProps(i, T, false, E.IDEAL), g0 = (p0[0] - T * p0[1]) / RT;
+      const corr = sp.phase === 'gas' ? Math.log(P) : q.act.lng(sp.id, T), mu = g0 + corr + Math.log(x), ps = piSum(i);
+      srows.push({ c: [sp.id + (sp.phase === 'gas' && !/\(g\)/.test(sp.id) ? '(g)' : ''), sp.phase, e3(eq.n[i]), e2(x), fx(g0, 4), fx(corr, 4), fx(Math.log(x), 4), fx(mu, 4), fx(ps, 4), e2(Math.abs(mu - ps))] });
+    });
+    host.appendChild(mkTable(['Species', 'Phase', 'n, mol', 'x', 'g°/RT', 'ln(P/P°) or ln γ', 'ln x', 'μ/RT', 'Σ a_ij π_j', '|Difference|'], srows, [2, 3, 4, 5, 6, 7, 8, 9]));
+    host.appendChild(eqLine('pure phase: a_c = exp(Σ_j a_cj π_j − g°_c/RT) ≤ 1, present when a_c = 1', eqn('puremu') + ' ' + eqn('pureact')));
+    const prow = []; E.SP.forEach((sp, i) => { if (sp.phase !== 'pure') return; const p0 = E.spProps(i, T, false, E.IDEAL), g0 = (p0[0] - T * p0[1]) / RT, ps = piSum(i); prow.push({ c: [sp.id, e3(eq.n[i]), fx(g0, 4), isFinite(ps) ? fx(ps, 4) : '–', isFinite(ps) ? e2(Math.exp(ps - g0)) : '–'] }); });
+    host.appendChild(mkTable(['Pure phase', 'n, mol', 'g°/RT', 'Σ a_cj π_j', 'Activity'], prow, [1, 2, 3, 4]));
+    /* 6. reaction relations with numbers */
+    host.appendChild(el('h3', null, 'Equilibria checked with these numbers'));
+    const gk = key => { const p = E.props(key, T); return p[0] - T * p[1]; }, Kf = terms => Math.exp(-terms.reduce((s, t) => s + t[0] * gk(t[1]), 0) / RT);
+    const pp = id => eq.act[SI[id]], xs = id => eq.n[SI[id]] / eq.phaseMol.slag, lg = id => Math.exp(q.act.lng(id, T));
+    const rel = [];
+    if (pp('CO') > 0 && pp('CO2') > 0 && eq.n[SI.ZnO] > 0) {
+      const K1 = Kf([[-1, 'ZnO(s)'], [-1, 'CO(g)'], [1, 'Zn(g)'], [1, 'CO2(g)']]), K2 = Kf([[-1, 'FeO(l)'], [-1, 'CO(g)'], [1, 'Fe'], [1, 'CO2(g)']]);
+      rel.push({ c: ['p_Zn/P° = K γ_ZnO x_ZnO p_CO/p_CO2 ' + eqn('zn') + ', K = ' + e2(K1), e3(pp('Zn(g)')), e3(K1 * lg('ZnO') * xs('ZnO') * pp('CO') / pp('CO2'))] });
+      rel.push({ c: ['a_Fe = K γ_FeO x_FeO p_CO/p_CO2 ' + eqn('fe') + ', K = ' + e2(K2), e3(Math.min(eq.act[SI.Fe], 1e9)), e3(K2 * lg('FeO') * xs('FeO') * pp('CO') / pp('CO2'))] });
+    }
+    if (eq.n[SI.FeO] > 0 && eq.n[SI['FeO1.5']] > 0 && pp('O2') > 0) {
+      const K3 = Kf([[-1, 'FeO(l)'], [-0.25, 'O2(g)'], [0.5, 'Fe2O3(s)']]);
+      rel.push({ c: ['x_FeO1.5/x_FeO = K γ_FeO/γ_FeO1.5 (p_O2/P°)^¼ ' + eqn('ox') + ', K = ' + e2(K3), e3(xs('FeO1.5') / xs('FeO')), e3(K3 * lg('FeO') / lg('FeO1.5') * Math.pow(pp('O2'), 0.25))] });
+    }
+    let Gs = 0, Gp = 0; for (let k = 0; k < E.NE; k++) if (isFinite(eq.pi[k])) Gp += eq.pi[k] * q.b[k];
+    E.SP.forEach((sp, i) => { if (eq.n[i] > 0) { const s = piSum(i); if (isFinite(s)) Gs += eq.n[i] * s; } });
+    rel.push({ c: ['G_min/RT = Σ_j π_j b_j = Σ_i n_i μ_i/RT ' + eqn('gmin'), e3(Gp), e3(Gs)] });
+    host.appendChild(mkTable(['Relation', 'Solved value', 'From the relation'], rel, [1, 2]));
+    /* 7. where the products go */
+    host.appendChild(el('h3', null, 'Where the products go'));
+    host.appendChild(eqLine('gas → cell above (share 1 − s) and inner cell above (share s); top row → off-gas', eqn('cellup') + ' ' + eqn('cellR')));
+    const nb = q.neighbours.filter(n => n.out).map(n => 'cell ' + (n.i + 1) + ',' + (n.j + 1) + ' (' + fx(100 * n.share, 2) + ' % of the cell per step)');
+    host.appendChild(el('p', 'note', 'Condensed phases stay in the cell at ' + fx(T - 273.15, 1) + ' °C. Gas goes to ' + (q.dest || 'off-gas') + '. Next step, slag leaves to ' + (nb.length ? nb.join(', ') : 'no neighbour (no circulation)') + ' ' + eqn('cellF') + '.'));
+  }
+
   /* ---------- orchestration ---------- */
   let last = null, timer = null;
   function compute() {
@@ -681,7 +920,7 @@
     E.setThermoOverrides(activeOverrides());
     try { r = E.run(inp); } catch (e) { $('status').textContent = ''; $('status').appendChild(msg('crit', 'The model could not run with these inputs: ' + e.message)); return; }
     last = { r, inp }; sweepStale = true;
-    renderStatus(r, inp); renderKpis(r, inp); renderNotes(r, inp); renderPanel(); save();
+    renderStatus(r, inp); renderKpis(r, inp); renderNotes(r, inp); renderPanel(); save(); fuStale();
   }
   function renderPanel() {
     if (!last) return; const r = last.r, inp = last.inp;
@@ -690,6 +929,7 @@
     else if (state.tab === 'cycle') renderCycle(r, inp);
     else if (state.tab === 'sweep' && sweepStale) runSweep();
     else if (state.tab === 'db') renderDB();
+    else if (state.tab === 'furnace') renderFurnace();
   }
   function schedule() { clearTimeout(timer); timer = setTimeout(compute, 180); }
   function setTab(t) {
@@ -701,14 +941,14 @@
   function init() {
     const saved = load();
     if (saved) { if (saved.mode === 'cont' || saved.mode === 'batch') state.mode = saved.mode; if (saved.thermal === 'fixed' || saved.thermal === 'auto') state.thermal = saved.thermal; if (typeof saved.hhvAuto === 'boolean') state.hhvAuto = saved.hhvAuto; if (TABS.indexOf(saved.tab) >= 0) state.tab = saved.tab; if (saved.gamT === 'regular' || saved.gamT === 'const') state.gamT = saved.gamT; }
-    dbLoad(); buildInputs(saved); setupSweep(); setupDB();
+    dbLoad(); buildInputs(saved); setupSweep(); setupDB(); setupFurnace(saved);
     $('mode-' + state.mode).checked = true; $('thermal-' + state.thermal).checked = true;
     document.querySelectorAll('input[name="mode"]').forEach(i => i.addEventListener('change', () => { state.mode = i.value; compute(); }));
     document.querySelectorAll('input[name="thermal"]').forEach(i => i.addEventListener('change', () => { state.thermal = i.value; compute(); }));
     document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { if (!b.disabled) setTab(b.dataset.tab); }));
     syncVisibility(); if (state.mode !== 'batch' && state.tab === 'cycle') state.tab = 'heat';
     compute(); setTab(state.tab);
-    let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (state.tab === 'cycle') renderPanel(); else if (state.tab === 'sweep' && sweepDraw) sweepDraw(); }, 250); });
+    let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (state.tab === 'cycle') renderPanel(); else if (state.tab === 'sweep' && sweepDraw) sweepDraw(); else if (state.tab === 'furnace') drawMap(); }, 250); });
   }
   init();
 })();

@@ -114,6 +114,19 @@ const SECTIONS = [
       r`H_\mathrm{bath}^{(k-1)}+\Delta t\sum_f \dot H_f=H_\mathrm{bath}^{(k)}(T_k)+H_\mathrm{gas}^{(k)}(T_k)+\dot Q_\mathrm{loss}\,\Delta t`,
       r`R_\mathrm{Zn}=\frac{\sum_k n_{\mathrm{Zn(g)}}^{(k)}}{n_\mathrm{Zn}^{\mathrm{feed}}},\qquad m_{\mathrm{CO_2}}=n_\mathrm{C}^{\mathrm{coal}}\,M_{\mathrm{CO_2}}`
     ] },
+  { title: 'Furnace cell model',
+    text: 'The Furnace tab divides a vertical cross-section of the bath into n<sub>x</sub> × n<sub>y</sub> cells, numbered i = 1 … n<sub>x</sub> from the left wall and j = 1 … n<sub>y</sub> from the bottom. Blast, coal and aluminium enter the two bottom cells at the side walls (the tuyeres). A share e of the coal is carried up the wall columns, cold charge enters the two top centre cells, and the heat loss is shared equally by the wall and bottom cells. In each time step the slag first moves along two counter-rotating loops given by a stream function ψ on the cell corners. F is the slag mass flow through a face from cell a to cell b, m<sub>ref</sub> the initial slag mass of a cell and M<sub>slag</sub> the charge. Then the cells are solved row by row from the bottom. Each cell holds its contents, the gas from the cell below and its feeds for Δt; the Gibbs minimisation (equations above) gives its equilibrium at the temperature that closes its heat balance, and the gas moves up. A share s goes to the neighbour on the inner side. The pressure of a cell includes the head of the slag above it, with ρ = 3500 kg/m³ and bath depth D.',
+    eqs: [
+      ['cellP', r`P_j=P_\mathrm{top}+\rho\,g\,D\,\Big(1-\frac{j-\tfrac12}{n_y}\Big)`],
+      ['cellpsi', r`\psi_{i,j}=-\Psi\,\sin\!\Big(\frac{2\pi\,i}{n_x}\Big)\sin\!\Big(\frac{\pi\,j}{n_y}\Big),\qquad \Psi=\frac{M_\mathrm{slag}}{2\,\tau}\qquad\text{(corner indices }i=0\ldots n_x,\ j=0\ldots n_y)`],
+      ['cellF', r`F_{a\to b}=\psi_\text{corner 2}-\psi_\text{corner 1}\qquad[\mathrm{kg\,s^{-1}}],\qquad \sum_\text{faces of a cell}F=0`],
+      ['cellX', r`n_{i}^{(b)}\leftarrow n_{i}^{(b)}+\frac{F_{a\to b}\,\Delta t}{m_\mathrm{ref}}\,n_{i}^{(a)},\qquad n_{i}^{(a)}\leftarrow n_{i}^{(a)}-\frac{F_{a\to b}\,\Delta t}{m_\mathrm{ref}}\,n_{i}^{(a)},\qquad\text{likewise for }H`],
+      ['cellCFL', r`\Delta t\le 0.8\,\frac{m_\mathrm{ref}}{\max_\text{cells}\sum_\text{out}F}`],
+      ['cellb', r`b_j^{\mathrm{cell}}=\sum_i a_{ij}\,n_i^{\mathrm{cell}}+\sum_i a_{ij}\,n_i^{\mathrm{gas,below}}+\Delta t\sum_f w_f\,\dot b_{j,f}`],
+      ['cellH', r`H^{\mathrm{cell}}+H^{\mathrm{gas,below}}+\Delta t\sum_f w_f\,\dot H_f-w_\mathrm{wall}\,\dot Q_\mathrm{loss}\,\Delta t=H_\mathrm{cond}(T)+H_\mathrm{gas}(T)`],
+      ['cellup', r`n_i^{\mathrm{gas,below}}(\text{cell above})\mathrel{+}=(1-s)\,n_i^{\mathrm{gas}},\qquad n_i^{\mathrm{gas,below}}(\text{inner cell above})\mathrel{+}=s\,n_i^{\mathrm{gas}}`],
+      ['cellR', r`R_\mathrm{Zn}=\frac{\sum_\text{steps}\sum_{\text{top row}}n_{\mathrm{Zn(g)}}}{n_\mathrm{Zn}^{\mathrm{feed}}}`]
+    ] },
   { title: 'Two-zone option',
     text: 'A share φ of the blast does not meet the slag. The bath equilibrates with the remaining blast and releases gas A. Gas A then reacts with the bypassed blast to a gas-only equilibrium B at the bath temperature. A fraction η of the heat released returns to the bath.',
     eqs: [
@@ -142,11 +155,19 @@ const svg = new SVG({ fontCache: 'global' });
 const doc = mathjax.document('', { InputJax: tex, OutputJax: svg });
 const esc = s => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 let n = 0, html = '', texOut = '% Fuming thermodynamic model: governing equations\n';
+/* labels of equations that the page cites by number */
+const LABELS = [['minG', '\\text{subject to}'], ['gasmu', '\\text{gas:}'], ['slagmu', '\\text{slag:}'], ['puremu', '\\text{pure condensed phase:}'],
+  ['kkt', 'for every species present'], ['pureact', '\\text{pure phase:}'], ['pi', 'p_i=P^\\circ\\exp'], ['gmin', 'G_{\\min}'],
+  ['excess', 'g_i^{\\mathrm E}=RT'], ['dln', '\\Delta\\ln n_i=\\Delta\\ln N_p'], ['newtonel', '\\sum_j\\Big(\\sum_i a_{ik}'], ['omega', '\\omega=\\min'],
+  ['K', 'K=\\exp'], ['zn', 'ZnO_{(slag)}+CO'], ['fe', 'FeO_{(slag)}+CO'], ['ox', 'FeO+\\tfrac14'], ['fT', 'f(T)=']];
+const NUM = {};
 SECTIONS.forEach(sec => {
   html += '<div class="block fsec"><h2>' + sec.title + '</h2><p class="ftext">' + sec.text + '</p>\n';
   texOut += '\n% ' + sec.title + '\n';
   sec.eqs.forEach(e => {
+    let lab = null; if (Array.isArray(e)) { lab = e[0]; e = e[1]; }
     n++;
+    if (lab) NUM[lab] = n; else for (const [l, sub] of LABELS) if (NUM[l] === undefined && e.indexOf(sub) >= 0) { NUM[l] = n; break; }
     const node = doc.convert(e, { display: true, em: 16, ex: 8, containerWidth: 1200 });
     let s = adaptor.innerHTML(node);
     if (/data-mjx-error|merror/.test(s)) throw new Error('TeX error in equation ' + n + ': ' + e);
@@ -163,4 +184,5 @@ html = '<svg style="display:none" aria-hidden="true" xmlns="http://www.w3.org/20
 const out = path.join(__dirname, '..', 'src');
 fs.writeFileSync(path.join(out, 'formulas.html'), html);
 fs.writeFileSync(path.join(out, 'formulas_tex.json'), JSON.stringify(texOut));
+fs.writeFileSync(path.join(out, 'formulas_num.json'), JSON.stringify(NUM));
 console.log(n, 'equations,', html.length, 'bytes of HTML');

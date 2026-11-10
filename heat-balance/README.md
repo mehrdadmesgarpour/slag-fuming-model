@@ -13,9 +13,10 @@ Everything runs in the browser. `index.html` is a single self-contained file and
 - **Thermal modes.** Heat-balanced mode solves for the bath temperature. Fixed-temperature mode reports the heat surplus or deficit.
 - **Heat balance.** Sensible terms, and chemical terms split by element group, so coal oxidation, aluminium oxidation and ZnO reduction appear as separate lines. A mass balance is shown next to it.
 - **Equilibrium view.** Slag, gas and pure condensed phases, activities, saturation checks, element potentials, and ΔH°, ΔG° and log K of the main reactions at bath temperature.
+- **Furnace cell model.** The batch cycle resolved over a vertical cross-section of the bath. Slag circulates between cells, blast, coal and aluminium enter at the tuyere cells and the gas rises cell by cell; every cell is solved by Gibbs energy minimisation and a heat balance in every time step. The map shows temperature, zinc in slag, zinc fumed, oxygen potential and other fields over the cycle. Clicking a cell shows every equation used for it with its numbers: element balance, heat balance and temperature iterations, the Newton iterations with element potentials, the chemical potential of every species and the bath equilibria.
 - **Sweeps.** Aluminium rate (with an optional coal reduction per kg of aluminium), coal, blast, oxygen enrichment, heat loss, cold charge, γ ZnO and the two-zone share.
 - **Database.** Import of external standard-state data and activity coefficients, and a live link to a local database server (below).
-- **Formulas.** The 60 governing equations, numbered, with a button that copies them as LaTeX.
+- **Formulas.** The 69 governing equations, numbered, with a button that copies them as LaTeX.
 
 The model in the repository root covers more phases and elements (alloy, bullion, matte, copper, cadmium) and can be fitted to plant assays. This page is built around the enthalpy balance. Coal enters with its heat of formation from the heating value, the bath temperature can be solved from the balance, and the heat sources and sinks are itemised. It uses a smaller species set.
 
@@ -74,6 +75,7 @@ node tests/stress_cases.js          # 13 cases and energy closure in 20 configur
 node tests/random_cases.js 20000    # randomised cases; optional arguments: N, seed, share without coal or blast
 node tests/dbio_tests.js            # file readers (npm install js-yaml for the YAML test)
 node tests/bridge_test.js           # local server with TDB (pycalphad), Cantera and JSON backends
+node tests/cell_model.js            # furnace cell model: batch limit, conservation, inspector
 python3 tests/verify_cantera.py     # independent minimisation with Cantera's VCS and Gibbs solvers
 python3 tests/verify_scipy.py       # independent minimisation with SciPy
 ```
@@ -86,6 +88,7 @@ Results for this version:
 - Adiabatic flame temperatures of CO and CH₄ in air agree with Cantera within 0.5 K, the effect of Cantera's 1 atm labelling.
 - The heat balance items add up to the residual within 10⁻⁸ MW in all modes, with constant, regular and tabulated γ, post-combustion and cold charge.
 - Halving the batch time step from 2 to 1 min changes zinc recovery by 0.1 percentage points.
+- With two cells, no circulation and no bath depth, the furnace cell model reproduces the well-mixed batch cycle (72.1775 % against 72.1776 % zinc recovery). On every grid tested its element and energy balances close to 10⁻¹³ of the input.
 - Built-in data written in each file format and read back are reproduced exactly (CSV tables within 0.005 J/mol). Activity coefficients from a Calphad regular-solution slag through pycalphad match the analytic values within 10⁻⁵.
 
 These checks cover the numerics and the data handling. The model has not been validated against plant data or FactSage.
@@ -102,7 +105,7 @@ These checks cover the numerics and the data handling. The model has not been va
 | Path | Content |
 |---|---|
 | `index.html` | The built page |
-| `src/engine.js` | Thermodynamic functions and data formats, Gibbs minimiser, activity models, feeds, heat balance, batch and continuous models |
+| `src/engine.js` | Thermodynamic functions and data formats, Gibbs minimiser, activity models, feeds, heat balance, batch, continuous and furnace cell models |
 | `src/dbio.js` | Readers for external data files and matching to the model's standard states |
 | `src/thermo.json` | NASA polynomial coefficients for the species used |
 | `src/ui.js`, `src/style.css`, `src/body.html` | Interface |
