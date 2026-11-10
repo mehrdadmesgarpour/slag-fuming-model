@@ -30,6 +30,7 @@
         <button role="tab" id="tabbtn-eq" data-tab="eq" aria-selected="false">Equilibrium</button>
         <button role="tab" id="tabbtn-cycle" data-tab="cycle" aria-selected="false">Cycle</button>
         <button role="tab" id="tabbtn-sweep" data-tab="sweep" aria-selected="false">Sweep</button>
+        <button role="tab" id="tabbtn-db" data-tab="db" aria-selected="false">Database</button>
         <button role="tab" id="tabbtn-formulas" data-tab="formulas" aria-selected="false">Formulas</button>
         <button role="tab" id="tabbtn-model" data-tab="model" aria-selected="false">Model</button>
       </div>
@@ -97,6 +98,62 @@
         </div>
       </section>
 
+      <section class="panel" id="tab-db" role="tabpanel" aria-labelledby="tabbtn-db" hidden>
+        <div class="block">
+          <header><h2>External thermodynamic data</h2><p id="db-summary"></p></header>
+          <p class="note">Imported data replace the built-in standard states species by species and are used in both the Gibbs energy minimisation and the heat balance. Values must be in J/mol and J/(mol K), with enthalpies relative to the elements at 298.15 K (the SER convention of Calphad and the formation-enthalpy convention of NASA and JANAF) and absolute entropies. Gas data are converted to the model's 1 bar standard pressure.</p>
+        </div>
+        <div class="cols">
+          <div class="block">
+            <h3>Import a file</h3>
+            <div class="dropzone" id="db-drop">
+              <label class="btn ghost" for="db-file">Choose files</label>
+              <input type="file" id="db-file" multiple accept=".json,.yaml,.yml,.tdb,.csv,.dat,.thermo,.inp,.txt" class="visually-hidden">
+              <span class="note">or drop them here. JSON (this model), NASA-7 (Chemkin), NASA-9 (CEA thermo.inp), Cantera YAML, Calphad TDB, CSV tables of h, s, cp or of γ against T.</span>
+            </div>
+            <div class="toolbar">
+              <div class="field wide"><label for="db-format">Format</label><select id="db-format"><option value="auto">Recognise from the file</option><option value="json">JSON (this model)</option><option value="nasa7">NASA-7, Chemkin THERMO</option><option value="nasa9">NASA-9, CEA thermo.inp</option><option value="yaml">Cantera YAML</option><option value="tdb">Calphad TDB</option><option value="csv">CSV table</option></select></div>
+              <div class="field wide"><label for="db-pref">Gas data without a stated reference pressure</label><select id="db-pref"><option value="bar">1 bar (NASA, JANAF, Burcat, TDB)</option><option value="atm">1 atm (older Chemkin files, GRI-Mech)</option></select></div>
+            </div>
+            <div id="db-sources" class="srclist"></div>
+          </div>
+          <div class="block">
+            <h3>Live link to a local server</h3>
+            <p class="note">Run <code>tools/thermo_bridge.py</code> from the repository on your computer with a TDB file (through pycalphad), a Cantera YAML file or a JSON data set. The page then loads standard states from it and asks it for slag activity coefficients at the current composition and temperature. This works when the page is opened from GitHub or from a file in Chrome, Edge or Firefox; inside the Claude app the page cannot open network connections.</p>
+            <div class="toolbar">
+              <div class="field wide"><label for="db-url">Server address</label><div class="box"><input type="text" id="db-url" spellcheck="false" style="font-family:var(--mono)"></div></div>
+              <button class="btn" id="db-connect" type="button">Connect</button>
+            </div>
+            <p class="note" id="db-link-state">Not connected.</p>
+            <div class="toolbar">
+              <button class="btn ghost" id="db-load" type="button" disabled>Load standard states</button>
+              <button class="btn ghost" id="db-gamma" type="button" disabled>Get γ for the current slag</button>
+              <button class="btn ghost" id="db-iterate" type="button" disabled>Iterate γ until it settles</button>
+            </div>
+            <div id="db-link-msg" class="status"></div>
+            <div class="scroll"><table id="db-log"></table></div>
+          </div>
+        </div>
+        <div class="block">
+          <header><h2>Standard states used by the model</h2><p>Δg° is the imported minus the built-in value at the bath temperature</p></header>
+          <div class="toolbar"><button class="btn ghost" id="db-builtin" type="button">Use built-in data for all</button><button class="btn ghost" id="db-clear" type="button">Remove imported data</button></div>
+          <div class="scroll"><table id="db-table"></table></div>
+        </div>
+        <div class="cols">
+          <div class="block">
+            <h3>Slag activity coefficients</h3>
+            <label class="check" id="db-usegamma-wrap" hidden><input type="checkbox" id="db-usegamma"><span>Use the imported activity-coefficient table (ln γ linear in 1/T between its points)</span></label>
+            <div class="scroll"><table id="db-gtable"></table></div>
+          </div>
+          <div class="block">
+            <h3>Export</h3>
+            <p class="note">The data in use, including the activity coefficients, in this model's JSON format. The local server can serve the file, and the file can be imported here again.</p>
+            <div class="toolbar"><button class="btn ghost" id="db-export" type="button">Copy data set as JSON</button><span class="note" id="db-export-msg"></span></div>
+            <div id="db-export-box"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="panel" id="tab-formulas" role="tabpanel" aria-labelledby="tabbtn-formulas" hidden>
         <div class="block">
           <header><h2>Governing equations</h2><p>Numbered in the order the model uses them.</p></header>
@@ -116,27 +173,39 @@
           </ul>
           <h2>Phases and species</h2>
           <ul>
-            <li><b>Gas</b> (ideal): N<sub>2</sub>, O<sub>2</sub>, CO, CO<sub>2</sub>, H<sub>2</sub>, H<sub>2</sub>O, CH<sub>4</sub>, Zn, Pb, PbO, PbS, SO<sub>2</sub>, H<sub>2</sub>S, S<sub>2</sub>, COS.</li>
-            <li><b>Slag</b>: solution of FeO, FeO<sub>1.5</sub>, ZnO, PbO, SiO<sub>2</sub>, CaO, AlO<sub>1.5</sub>, MgO on a single-cation mole fraction basis. ZnO, PbO, FeO and FeO<sub>1.5</sub> carry a constant activity coefficient that you set. The other oxides are treated as ideal diluents. Sulfur does not dissolve in the slag.</li>
-            <li><b>Pure condensed phases</b>: iron, lead, graphite, magnetite, and aluminium and silicon as sinks for excess reductant.</li>
+            <li><b>Gas</b> (ideal, standard pressure 1 bar): N<sub>2</sub>, O<sub>2</sub>, CO, CO<sub>2</sub>, H<sub>2</sub>, H<sub>2</sub>O, CH<sub>4</sub>, Zn, Pb, PbO, PbS, SO<sub>2</sub>, H<sub>2</sub>S, S<sub>2</sub>, COS. Radicals such as O, OH and H are left out. They change the adiabatic flame temperature of CO in air by 14 K but are negligible at bath temperatures.</li>
+            <li><b>Slag</b>: solution of FeO, FeO<sub>1.5</sub>, ZnO, PbO, SiO<sub>2</sub>, CaO, AlO<sub>1.5</sub>, MgO on a single-cation mole fraction basis. ZnO, PbO, FeO and FeO<sub>1.5</sub> carry activity coefficients: constant, regular-solution, a temperature table, or values from a database server. The other oxides are ideal diluents. Sulfur does not dissolve in the slag.</li>
+            <li><b>Pure condensed phases</b>: iron, lead, graphite, magnetite, liquid FeS as a matte, and aluminium and silicon as sinks for excess reductant.</li>
+            <li><b>Saturation checks</b> outside the minimisation: CaS (a sign that sulfur would go into the slag as sulfide) and liquid zinc (possible at low temperature and high pressure). The page warns when either activity exceeds 1.</li>
           </ul>
           <h2>Standard states and data</h2>
           <ul>
-            <li>Thermochemical functions are the NASA Glenn polynomials (McBride, Gordon and Reno, NASA TM-4513, 1993), read from the Cantera 3.2 data files. Outside a fitted range the heat capacity is held constant.</li>
+            <li>Thermochemical functions are the NASA Glenn polynomials (McBride, Gordon and Reno, NASA TM-4513, 1993), read from the Cantera 3.2 data files. They refer to 1 bar. Cantera itself reads these files as 1 atm data because the files do not state a pressure; the model uses 1 bar, which the tabulated entropies confirm. Outside a fitted range the heat capacity is held constant. At bath temperature this applies to liquid FeO (fitted from 1650 K) and liquid SiO<sub>2</sub> (from 1696 K).</li>
             <li>ZnO is not in that file. It uses the CODATA values at 298.15 K (Δ<sub>f</sub>H° = −350.46 kJ/mol, S° = 43.65 J/(mol·K)) with C<sub>p</sub> = 45.338 + 7.289×10<sup>−3</sup>T − 5.732×10<sup>5</sup>T<sup>−2</sup> J/(mol·K). These are the data of the slag-fuming-model repository, which records agreement with SUPCRT16 zincite within 1.3 kJ.</li>
-            <li>Slag standard states: liquid FeO, PbO and SiO<sub>2</sub>; solid ZnO, CaO, MgO, α-Al<sub>2</sub>O<sub>3</sub> and hematite. Activity coefficients must be given on the same basis. For ZnO, PbO, FeO and FeO<sub>1.5</sub> the standard states and the mole fraction basis are the same as in the slag-fuming-model repository, so activity coefficients fitted there carry over as long as copper and cadmium oxides are minor.</li>
-            <li>The JANAF FeO is the stoichiometric compound and is more stable than iron oxide in equilibrium with iron. Its Gibbs energy is raised by 5829.5 + 3.1911T J/mol, which is 10.7 kJ/mol at 1250 °C. This is the correction used in the slag-fuming-model repository, taken there from the Calphad Fe–O description. An independent estimate from Fe + ½O<sub>2</sub> = FeO(s), ΔG° = −263 700 + 64.35T J, with the JANAF fusion data gives about 8.1 kJ/mol. The difference moves the FeO activity scale by a factor of about 1.2 and is absorbed by γ FeO.</li>
-            <li>Coal enters through its dry ultimate analysis and higher heating value. If you let the model estimate the heating value it uses the Channiwala and Parikh (2002) correlation. Ash is carried as 60 % SiO<sub>2</sub> and 40 % Al<sub>2</sub>O<sub>3</sub>.</li>
+            <li>Slag standard states: liquid FeO, PbO and SiO<sub>2</sub>; solid ZnO, CaO, MgO, α-Al<sub>2</sub>O<sub>3</sub> and hematite. Activity coefficients must be given on the same basis. For ZnO, PbO, FeO and FeO<sub>1.5</sub> the standard states and the mole fraction basis are the same as in the slag-fuming-model repository.</li>
+            <li>The JANAF FeO is the stoichiometric compound and is more stable than iron oxide in equilibrium with iron. Its Gibbs energy is raised by 5829.5 + 3.1911T J/mol, 10.7 kJ/mol at 1250 °C (correction of the slag-fuming-model repository, from the Calphad Fe–O description). An independent estimate from Fe + ½O<sub>2</sub> = FeO(s), ΔG° = −263 700 + 64.35T J, with the JANAF fusion data gives about 8.1 kJ/mol. The difference moves the FeO activity scale by a factor of about 1.2 and is absorbed by γ FeO.</li>
+            <li>Coal enters through its dry ultimate analysis and higher heating value. If you let the model estimate the heating value it uses the Channiwala and Parikh (2002) correlation. Ash is carried as 60 % SiO<sub>2</sub> and 40 % Al<sub>2</sub>O<sub>3</sub> and enters as crystalline oxides at 25 °C.</li>
+            <li>Any of these records can be replaced from the Database tab: by file (JSON, NASA-7, NASA-9, Cantera YAML, Calphad TDB, CSV) or from a local server that reads TDB, Cantera or JSON data and can evaluate a slag solution model.</li>
           </ul>
-          <h2>Solver and checks</h2>
-          <p>The minimisation is a Lagrangian Newton iteration on the element potentials (the RAND method used in NASA CEA), extended with a second solution phase and with rules for adding and removing phases. At every solution the chemical potential of each species equals the sum of its element potentials to better than 10<sup>−9</sup> in μ/RT. In 44 000 randomised cases the solver converged every time. Thirteen cases were compared with an independent SciPy minimisation using Cantera to evaluate the species data. The minimum G/RT agreed within 5×10<sup>−8</sup> in all thirteen and within 3×10<sup>−9</sup> in eleven, which is the level of the SciPy element balance residual. The heat and mass balances shown here close to rounding error by construction.</p>
+          <h2>Solver</h2>
+          <p>The minimisation is a Lagrangian Newton iteration on the element potentials (the RAND method used in NASA CEA), extended with a second solution phase and with rules for adding and removing phases. A phase set that repeats switches the rules from adding first to removing first. A gas phase that consists only of vapours of pure condensed phases makes the Newton matrix singular, so the solver then restarts without it and lets the saturation test decide.</p>
+          <h2>Verification</h2>
+          <ul>
+            <li><b>Independent solver.</b> Cantera's VCS and Gibbs multiphase solvers, given the same species data, reach the same minimum within 5×10<sup>−7</sup> in G/RT and 10<sup>−6</sup> in the species amounts in 13 cases from oxidising to strongly over-reduced. A SciPy minimisation started from perturbed points agrees within 4×10<sup>−9</sup> in all 13.</li>
+            <li><b>Robustness.</b> 44 000 randomised cases over the full input range and 6000 cases at low temperature and high pressure converged. In every case the chemical potential of each species equals the sum of its element potentials to better than 10<sup>−9</sup> in μ/RT.</li>
+            <li><b>Data.</b> The polynomial evaluation reproduces Cantera within 10<sup>−4</sup> J/mol. The reaction relations on the Formulas tab hold on solved states to 10<sup>−14</sup>.</li>
+            <li><b>Heat balance.</b> Adiabatic flame temperatures of CO and CH<sub>4</sub> in air agree with Cantera within 0.5 K, which is the 1 bar against 1 atm labelling above. The heat and mass balances close to 10<sup>−9</sup> MW in every mode, with constant, regular and tabulated activity coefficients, post-combustion and cold charge.</li>
+            <li><b>Time step.</b> Halving the batch time step from 2 to 1 min changes zinc recovery by 0.1 percentage points. The limit for small steps is about 0.25 points above the 2 min result.</li>
+            <li><b>External data.</b> Built-in data written in each file format and read back are reproduced exactly (CSV tables within 0.005 J/mol). Through the local server, activity coefficients from a Calphad regular-solution slag evaluated by pycalphad match the analytic values within 10<sup>−5</sup>.</li>
+          </ul>
           <h2>Limits you should keep in mind</h2>
           <ul>
-            <li>The result is an equilibrium limit for one well-mixed zone. Richards, Brimacombe and Toop (1985) showed that a tuyere-blown fuming furnace behaves as a reduction zone around entrained coal and an oxidation zone in the tuyere gas column. The optional setting under Blast lets a share of the blast burn the bath gas without meeting the slag. Use it to calibrate against plant data. It is zero by default.</li>
-            <li>Constant activity coefficients are a coarse slag model. Published values for ZnO scatter widely. The defaults are placeholders in the reported range. Calibrate them against FactSage, ChemApp or measured end-of-cycle assays for your slag.</li>
-            <li>Slag enthalpy is the sum of the component oxides. Heats of mixing, including the heat of dissolving Al<sub>2</sub>O<sub>3</sub> from aluminium oxidation, are neglected.</li>
+            <li>The result is an equilibrium limit for one well-mixed zone. Richards, Brimacombe and Toop (1985) showed that a tuyere-blown fuming furnace behaves as a reduction zone around entrained coal and an oxidation zone in the tuyere gas column. The setting under Blast lets a share of the blast burn the bath gas without meeting the slag. Use it to calibrate against plant data. It is zero by default.</li>
+            <li>The built-in activity coefficients are placeholders that depend on temperature only. Zinc recovery is very sensitive to γ ZnO. Calibrate them, or link a database with a slag solution model and iterate.</li>
+            <li>The slag enthalpy is that of the component oxides plus the excess enthalpy of the four oxides with activity coefficients. For a fayalite composition, the heat to take cold slag to liquid at 1250 °C is 1.36 MJ/kg in the model, against 1.54 MJ/kg from the measured data of Stebbins and Carmichael (1984). Heat demand for cold charge is therefore about 12 % low.</li>
+            <li>Sulfur has no sulfide capacity in the slag. When the page reports CaS saturation, real slag would hold sulfur that the model sends to the gas.</li>
             <li>Liquidus, viscosity and kinetics are not modelled. The model will report a bath temperature at which the slag would not be liquid.</li>
-            <li>Metallic iron is pure iron. No matte, speiss or alloy phase is included.</li>
+            <li>Metallic iron is pure iron and the matte is pure FeS. No alloy or speiss phase is included.</li>
           </ul>
         </div>
       </section>

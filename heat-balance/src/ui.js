@@ -12,9 +12,10 @@
     'coal.rate': 3000, 'coal.moist': 2, 'coal.bypass': 0, 'coal.C': 75, 'coal.H': 4.5, 'coal.O': 7, 'coal.N': 1.5, 'coal.S': 0.8, 'coal.ash': 11.2, 'coal.hhv': 30.6,
     'al.rate': 300, 'al.metal': 95, 'blast.rate': 18000, 'blast.o2': 21, 'blast.T': 25, 'blast.pc': 0, 'blast.hte': 100,
     'op.T': 1250, 'op.loss': 6, 'op.P': 1, 'batch.time': 120, 'batch.dt': 2,
-    'gam.ZnO': 2.0, 'gam.PbO': 0.3, 'gam.FeO': 1.0, 'gam.FeO15': 1.5
+    'gam.ZnO': 2.0, 'gam.PbO': 0.3, 'gam.FeO': 1.0, 'gam.FeO15': 1.5, 'gam.Tref': 1250
   };
-  const state = { mode: 'batch', thermal: 'auto', hhvAuto: true, tab: 'heat' };
+  const state = { mode: 'batch', thermal: 'auto', hhvAuto: true, tab: 'heat', gamT: 'const' };
+  const TABS = ['heat', 'eq', 'cycle', 'sweep', 'db', 'formulas', 'model'];
   // [key, label, unit, min, max, step, show]
   const F = (k, label, unit, min, max, step, show) => ({ k, label, unit, min, max, step: step || 'any', show });
   const GROUPS = [
@@ -42,7 +43,9 @@
         F('batch.time', 'Cycle time', 'min', 4, 600, 10, 'batch'), F('batch.dt', 'Time step', 'min', 0.5, 30, 0.5, 'batch')] }] },
     { id: 'gam', title: 'Slag activity coefficients', open: false, parts: [
       { fields: [F('gam.ZnO', 'γ ZnO, solid', '', 0.05, 20), F('gam.PbO', 'γ PbO, liquid', '', 0.02, 20), F('gam.FeO', 'γ FeO, liquid', '', 0.05, 20), F('gam.FeO15', 'γ FeO₁.₅, hematite', '', 0.05, 20)] },
-      { noteText: 'Single-cation mole fractions. The state after each oxide is its standard state.' }] }
+      { select: 'gamT', label: 'Temperature dependence', options: [['const', 'Constant γ (excess entropy only)'], ['regular', 'Regular solution, ln γ ∝ 1/T']] },
+      { fields: [F('gam.Tref', 'γ values given at', '°C', 800, 1700, 10, 'regular')] },
+      { noteText: 'Single-cation mole fractions. The state after each oxide is its standard state. A table imported on the Database tab replaces these values for the oxides it covers.' }] }
   ];
   const PRESETS = [
     ['Coal only', { 'coal.rate': 3300, 'al.rate': 0, 'blast.rate': 20000, 'blast.o2': 21 }],
@@ -58,7 +61,7 @@
   function save() {
     try {
       const vals = {}; for (const k in DEFAULTS) { const i = $(inId(k)); if (i) vals[k] = i.value; }
-      localStorage.setItem(STORE, JSON.stringify({ vals, mode: state.mode, thermal: state.thermal, hhvAuto: state.hhvAuto, tab: state.tab }));
+      localStorage.setItem(STORE, JSON.stringify({ vals, mode: state.mode, thermal: state.thermal, hhvAuto: state.hhvAuto, tab: state.tab, gamT: state.gamT }));
     } catch (e) { /* storage unavailable */ }
   }
 
@@ -93,6 +96,13 @@
           c.addEventListener('change', () => { state[p.check] = c.checked; compute(); });
           lab.appendChild(c); lab.appendChild(el('span', null, p.label)); body.appendChild(lab);
         }
+        if (p.select) {
+          const w = el('div', 'field'); const lab = el('label', null, p.label); lab.htmlFor = 'sel-' + p.select;
+          const sel = el('select'); sel.id = 'sel-' + p.select;
+          p.options.forEach(o => { const op = el('option', null, o[1]); op.value = o[0]; sel.appendChild(op); });
+          sel.value = state[p.select]; sel.addEventListener('change', () => { state[p.select] = sel.value; compute(); });
+          w.appendChild(lab); w.appendChild(sel); body.appendChild(w);
+        }
         if (p.note) { const n = el('p', 'note'); n.id = p.note; body.appendChild(n); }
         if (p.noteText) body.appendChild(el('p', 'note', p.noteText));
       });
@@ -114,10 +124,11 @@
     for (const k in DEFAULTS) { const [a, b] = k.split('.'); o[a][b] = val(k); }
     o.slag.rate = state.mode === 'batch' ? o.slag.rateB : o.slag.rateC;
     o.coal.hhvAuto = state.hhvAuto;
+    o.gamT = state.gamT; o.gamTref = o.gam.Tref; o.gamTable = gammaTable();
     return o;
   }
   function syncVisibility() {
-    document.querySelectorAll('[data-show]').forEach(n => { const s = n.dataset.show; n.hidden = !(s === state.mode || s === state.thermal); });
+    document.querySelectorAll('[data-show]').forEach(n => { const s = n.dataset.show; n.hidden = !(s === state.mode || s === state.thermal || s === state.gamT); });
     $(inId('coal.hhv')).disabled = state.hhvAuto;
     const cyc = $('tabbtn-cycle'); cyc.disabled = state.mode !== 'batch';
     if (state.mode !== 'batch' && state.tab === 'cycle') setTab('heat');
@@ -136,7 +147,7 @@
   const basisWord = r => r.mode === 'batch' ? 'cycle' : 'hour';
 
   /* ---------- status and KPIs ---------- */
-  const ICON = { ok: 'M3 8.5l3.2 3.2L13 4.8', warn: 'M8 2.2l6.3 11H1.7zM8 6.6v3.2M8 11.6v.4', crit: 'M8 2.2l6.3 11H1.7zM8 6.6v3.2M8 11.6v.4' };
+  const ICON = { ok: 'M3 8.5l3.2 3.2L13 4.8', warn: 'M8 2.2l6.3 11H1.7zM8 6.6v3.2M8 11.6v.4', crit: 'M8 2.2l6.3 11H1.7zM8 6.6v3.2M8 11.6v.4', info: 'M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM8 7.2v4M8 4.9v.4' };
   function msg(level, text) {
     const m = el('div', 'msg ' + level); const s = sv('svg', { width: 16, height: 16, viewBox: '0 0 16 16', 'aria-hidden': 'true' });
     s.appendChild(sv('path', { d: ICON[level], fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
@@ -155,8 +166,13 @@
     if (so.C > 0.5) out.push(['warn', 'Unreacted carbon remains in the bath (' + fx(so.C, 0) + ' kg' + per + ').']);
     if (so.Si > 0.5 || so.Al > 0.5) out.push(['crit', 'The reductant exceeds what the iron, zinc and lead oxides can consume. Silicon or aluminium metal appears. This is outside the range the slag model is meant for.']);
     if (so.Pb > 0.5) out.push(['warn', 'Liquid lead forms (' + fx(so.Pb, 0) + ' kg' + per + ').']);
+    if (so.FeS > 0.5) out.push(['warn', 'A liquid FeS matte forms (' + fx(so.FeS, 0) + ' kg' + per + '). The model treats it as pure FeS.']);
+    if (r.d.aCaS > 1) out.push(['warn', 'The sulfur potential is high enough for CaS to form (activity ' + sig(r.d.aCaS, 2) + '). In a real slag this sulfur dissolves as sulfide. The model has no sulfide in the slag, so the sulfur stays in the gas.']);
+    if (r.d.aZnl > 1) out.push(['crit', 'Liquid zinc would condense at this temperature and pressure (activity ' + sig(r.d.aZnl, 3) + '). The model does not include liquid zinc, so the zinc in the gas is overstated.']);
+    const nx = Object.keys(activeOverrides()).length, gt = gammaTable();
+    if (nx || gt) out.push(['info', 'Results use imported data: ' + (nx ? nx + ' standard state' + (nx > 1 ? 's' : '') : '') + (nx && gt ? ' and ' : '') + (gt ? 'an activity-coefficient table for ' + Object.keys(gt).join(', ') : '') + '. See the Database tab.']);
     r.warn.forEach(w => out.push(['warn', w]));
-    if (!out.length) out.push(['ok', 'Converged. Mass and energy balances close.']);
+    if (!out.some(o => o[0] !== 'info')) out.unshift(['ok', 'Converged. Mass and energy balances close.']);
     out.forEach(o => host.appendChild(msg(o[0], o[1])));
   }
   function kpi(label, value, unit, sub) {
@@ -265,8 +281,10 @@
     if (r.fume.ZnO + r.fume.PbO > 0.5) grows.push({ c: two ? ['Oxide fume, kg', '', fx(r.fume.ZnO + r.fume.PbO, 0)] : ['Oxide fume, kg', '0'] });
     simpleTable('gas-table', two ? ['', 'Leaving the bath', 'After burning above the bath'] : ['', 'Leaving the bath'], grows, two ? [1, 2] : [1]);
     /* condensed */
-    const sn = { Fe: 'Iron', Pb: 'Lead (liquid)', C: 'Graphite', Fe3O4: 'Magnetite', Al: 'Aluminium', Si: 'Silicon' };
-    const srows = Object.keys(sn).map(k => { const a = eq.act[E.SI[k]]; return { c: [sn[k], fx(d.solids[k], 0), isFinite(a) ? (a < 1e-3 ? a.toExponential(1).replace('-', '−') : fx(Math.min(a, 1), 3)) : '–'] }; });
+    const sn = { Fe: 'Iron', Pb: 'Lead (liquid)', C: 'Graphite', Fe3O4: 'Magnetite', Al: 'Aluminium', Si: 'Silicon', FeS: 'FeS matte (liquid)' };
+    const fa = a => isFinite(a) ? (a < 1e-3 ? a.toExponential(1).replace('-', '−') : fx(a, 3)) : '–';
+    const srows = Object.keys(sn).map(k => ({ c: [sn[k], fx(d.solids[k], 0), fa(Math.min(eq.act[E.SI[k]], 1))] }));
+    srows.push({ c: ['CaS, check only', '–', fa(d.aCaS)] }, { c: ['Liquid zinc, check only', '–', fa(d.aZnl)] });
     simpleTable('solid-table', ['Phase', batch ? 'kg in bath' : 'kg/h', 'Activity'], srows, [1, 2]);
     /* reactions */
     $('rx-basis').textContent = 'Pure-species standard states at ' + fx(eq.T - 273.15, 0) + ' °C, per reaction as written';
@@ -447,11 +465,220 @@
     $('note-blast').textContent = need > 0 ? 'Blast oxygen is ' + fx(100 * have / need, 0) + ' % of what the coal and aluminium need for complete oxidation.' : 'No reductant is fed.';
   }
 
+
+  /* ---------- external thermodynamic data ---------- */
+  const DBSTORE = 'fuming-model-db-v1';
+  const KEYS = E.thermoKeys();
+  const DBS = { sources: [], map: {}, useGamma: true, url: 'http://127.0.0.1:8765', info: null, log: [] };
+  let srcSeq = 0;
+  const srcById = id => DBS.sources.find(x => x.id === id);
+  function chosen(key) { const m = DBS.map[key]; if (!m) return null; const sc = srcById(m.src); return sc ? sc.species[m.i] : null; }
+  function activeOverrides() { const o = {}; KEYS.forEach(k => { const sp = chosen(k.key); if (sp) o[k.key] = sp.record; }); return o; }
+  function gammaTable() { if (!DBS.useGamma) return null; const sc = DBS.sources.slice().reverse().find(x => x.gamma); return sc ? sc.gamma : null; }
+  /* activity data from JSON {gamma, table:{ox:{T, gamma}}} or CSV {table:{ox:{T, g}}} -> engine table {ox:{T, g}} */
+  function normGamma(g) {
+    if (!g) return null; const t = {};
+    for (const ox in (g.table || {})) { const x = g.table[ox]; if (x && x.T && (x.g || x.gamma)) t[ox] = { T: x.T.slice(), g: (x.g || x.gamma).slice() }; }
+    for (const ox in (g.gamma || {})) if (!t[ox] && g.gamma[ox] > 0) t[ox] = { T: [g.Tref || 1523.15], g: [g.gamma[ox]] };
+    return Object.keys(t).length ? t : null;
+  }
+  function addSource(label, kind, parsed) {
+    const id = 'S' + (++srcSeq);
+    const sc = { id, label, kind, format: parsed.format, species: parsed.species || [], gamma: normGamma(parsed.gamma), warnings: parsed.warnings || [] };
+    DBS.sources.push(sc);
+    /* automatic use only for data within 30 kJ/mol of the built-in value at 1250 C; larger differences usually mean another
+       reference state or unit, so those are left for the user to choose in the table */
+    const m = FumeDB.autoMatch(KEYS, sc.species); sc.mapped = 0; const Tc = 1523.15;
+    for (const key in m) {
+      const i = sc.species.indexOf(m[key]); if (i < 0) continue;
+      let d = NaN; try { const a = E.evalRecord(m[key].record, Tc), b0 = E.builtinProps(key, Tc); d = ((a[0] - Tc * a[1]) - (b0[0] - Tc * b0[1])) / 1000; } catch (e) { d = NaN; }
+      if (!(Math.abs(d) < 30)) { sc.warnings.push(m[key].name + ' was not used for ' + key + ' automatically: it differs from the built-in value by ' + (isFinite(d) ? fx(d, 0) + ' kJ/mol' : 'an unreadable amount') + ' at 1250 °C. Choose it in the table if this is intended.'); continue; }
+      DBS.map[key] = { src: id, i }; sc.mapped++;
+    }
+    if (sc.gamma) DBS.useGamma = true;
+    dbSave(); return sc;
+  }
+  /* only what is in use is kept between visits */
+  function dbSave() {
+    try {
+      const used = {}; KEYS.forEach(k => { const sp = chosen(k.key); if (sp) used[k.key] = { sp, label: srcById(DBS.map[k.key].src).label }; });
+      const g = gammaTable(), gs = DBS.sources.slice().reverse().find(x => x.gamma);
+      localStorage.setItem(DBSTORE, JSON.stringify({ used, gamma: g ? { table: g, label: gs.label } : null, useGamma: DBS.useGamma, url: DBS.url }));
+    } catch (e) { /* storage unavailable or full */ }
+  }
+  function dbLoad() {
+    let d = null; try { d = JSON.parse(localStorage.getItem(DBSTORE) || 'null'); } catch (e) { d = null; }
+    if (!d) return;
+    if (d.url) DBS.url = d.url; DBS.useGamma = d.useGamma !== false;
+    const keys = Object.keys(d.used || {});
+    if (keys.length) {
+      const sc = { id: 'S' + (++srcSeq), label: 'Kept from your last visit', kind: 'restored', format: 'json', species: [], gamma: null, warnings: [] };
+      keys.forEach(k => { if (!KEYS.some(x => x.key === k)) return; sc.species.push(Object.assign({}, d.used[k].sp, { src: d.used[k].label })); DBS.map[k] = { src: sc.id, i: sc.species.length - 1 }; });
+      sc.mapped = sc.species.length; DBS.sources.push(sc);
+    }
+    if (d.gamma && d.gamma.table) DBS.sources.push({ id: 'S' + (++srcSeq), label: d.gamma.label + ' (kept from your last visit)', kind: 'restored', format: 'json', species: [], gamma: d.gamma.table, warnings: [], mapped: 0 });
+  }
+  function setupDB() {
+    $('db-file').addEventListener('change', ev => { readFiles(ev.target.files); ev.target.value = ''; });
+    const dz = $('db-drop');
+    dz.addEventListener('dragover', ev => { ev.preventDefault(); dz.classList.add('over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+    dz.addEventListener('drop', ev => { ev.preventDefault(); dz.classList.remove('over'); readFiles(ev.dataTransfer.files); });
+    $('db-url').value = DBS.url;
+    $('db-url').addEventListener('change', () => { DBS.url = $('db-url').value.trim(); DBS.info = null; dbSave(); renderDB(); });
+    $('db-connect').addEventListener('click', connect);
+    $('db-load').addEventListener('click', loadStates);
+    $('db-gamma').addEventListener('click', () => fetchGamma(false));
+    $('db-iterate').addEventListener('click', () => fetchGamma(true));
+    $('db-builtin').addEventListener('click', () => { DBS.map = {}; dbSave(); compute(); renderDB(); });
+    $('db-clear').addEventListener('click', () => { DBS.sources = []; DBS.map = {}; dbSave(); compute(); renderDB(); });
+    $('db-usegamma').addEventListener('change', ev => { DBS.useGamma = ev.target.checked; dbSave(); compute(); renderDB(); });
+    $('db-export').addEventListener('click', () => {
+      const entries = KEYS.map(k => { const sp = chosen(k.key); return sp ? Object.assign({}, sp, { name: k.key, comp: k.comp }) : { name: k.key, comp: k.comp, phase: k.phase, record: Object.assign({}, E.builtinRecord(k.key)), src: 'built-in' }; });
+      const g = gammaTable(), inp = last ? last.inp : null;
+      const act = g ? { table: Object.fromEntries(Object.entries(g).map(([o, t]) => [o, { T: t.T, gamma: t.g }])) } : inp ? { mode: inp.gamT, Tref: inp.gamTref + 273.15, gamma: { ZnO: inp.gam.ZnO, PbO: inp.gam.PbO, FeO: inp.gam.FeO, 'FeO1.5': inp.gam.FeO15 } } : null;
+      copyText(FumeDB.toJSON(entries, act, 'Fuming Thermodynamic Model, data in use'), 'db-export-msg', 'db-export-box', 'Copied. Save it as a .json file; it can be imported here or served with the local server.');
+    });
+  }
+  function readFiles(files) {
+    const fmt = $('db-format').value, pref = $('db-pref').value === 'atm' ? FumeDB.ATM : 1e5;
+    Array.from(files || []).forEach(f => {
+      const rd = new FileReader();
+      rd.onload = () => {
+        let parsed;
+        try { parsed = FumeDB.parse(String(rd.result), f.name, { format: fmt, pref }); }
+        catch (e) { parsed = { format: fmt, species: [], gamma: null, warnings: ['Could not read ' + f.name + ': ' + e.message] }; }
+        addSource(f.name, 'file', parsed); compute(); renderDB();
+      };
+      rd.onerror = () => { addSource(f.name, 'file', { format: fmt, species: [], gamma: null, warnings: ['The file could not be read.'] }); renderDB(); };
+      rd.readAsText(f);
+    });
+  }
+  /* ---- live link to a local server (tools/thermo_bridge.py) ---- */
+  async function linkCall(path, body) {
+    const url = DBS.url.replace(/\/+$/, '') + path, ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 60000);
+    try {
+      const r = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctl.signal } : { signal: ctl.signal });
+      const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || 'HTTP ' + r.status); return j;
+    } catch (e) {
+      if (e.name === 'AbortError') throw new Error('The server did not answer within 60 s.');
+      if (e instanceof TypeError) throw new Error('The page could not reach ' + DBS.url + '. Check that the server is running. Inside the Claude app the page cannot open network connections; use the GitHub page or the downloaded file in Chrome, Edge or Firefox.');
+      throw e;
+    } finally { clearTimeout(tm); }
+  }
+  function linkMsg(level, text) { const h = $('db-link-msg'); h.textContent = ''; h.appendChild(msg(level, text)); }
+  async function connect() {
+    DBS.url = $('db-url').value.trim(); dbSave(); linkMsg('info', 'Connecting to ' + DBS.url + ' …');
+    try { DBS.info = await linkCall('/info'); renderDB(); }
+    catch (e) { DBS.info = null; renderDB(); linkMsg('crit', e.message); }
+  }
+  async function loadStates() {
+    if (!DBS.info) return;
+    const names = DBS.info.species.filter(sp => KEYS.some(k => FumeDB.compatible(k, { name: sp.name, comp: sp.composition, phase: sp.phase }))).map(sp => sp.name);
+    if (!names.length) { linkMsg('warn', 'The server offers no species with the formula of a model standard state.'); return; }
+    linkMsg('info', 'Loading ' + names.length + ' standard states …');
+    try {
+      const res = await linkCall('/species', { names, Tmin: 700, Tmax: 2500, dT: 10 });
+      const sc = addSource('Server: ' + (DBS.info.source || DBS.url), 'server', FumeDB.parse(JSON.stringify(res), 'server.json'));
+      compute(); renderDB(); linkMsg('ok', 'Loaded ' + sc.species.length + ' standard states. ' + sc.mapped + ' replaced built-in data; choose the others in the table below.');
+    } catch (e) { linkMsg('crit', e.message); }
+  }
+  function slagMoles() {
+    const n = last.r.eq.n, o = {}; ['FeO', 'FeO1.5', 'ZnO', 'PbO', 'SiO2', 'CaO', 'AlO1.5', 'MgO'].forEach(id => { if (n[E.SI[id]] > 0) o[id] = n[E.SI[id]]; }); return o;
+  }
+  async function fetchGamma(iterate) {
+    if (!DBS.info || !last) return;
+    const btns = ['db-gamma', 'db-iterate'].map($); btns.forEach(b => { b.disabled = true; });
+    const map = { ZnO: 'gam.ZnO', PbO: 'gam.PbO', FeO: 'gam.FeO', 'FeO1.5': 'gam.FeO15' };
+    DBS.log = []; let k = 0;
+    try {
+      for (; k < (iterate ? 12 : 1); k++) {
+        const T = last.r.T, res = await linkCall('/activity', { T, P: last.inp.op.P * 101325, moles: slagMoles() });
+        let dmax = 0; const row = { k: k + 1, T: T - 273.15, g: {}, ignored: res.ignored || [] };
+        for (const ox in map) {
+          const gv = res.gamma && res.gamma[ox]; if (!(gv > 0)) continue;
+          const old = parseFloat($(inId(map[ox])).value); dmax = Math.max(dmax, Math.abs(Math.log(gv / old)));
+          $(inId(map[ox])).value = +gv.toPrecision(5); row.g[ox] = gv;
+        }
+        state.gamT = 'const'; $('sel-gamT').value = 'const';
+        row.d = dmax; DBS.log.push(row);
+        compute();
+        if (dmax < 2e-3) break;
+      }
+      const lastRow = DBS.log[DBS.log.length - 1];
+      linkMsg(lastRow.d < 2e-3 || !iterate ? 'ok' : 'warn', (iterate ? (lastRow.d < 2e-3 ? 'Self-consistent after ' + DBS.log.length + ' rounds.' : 'Not settled after ' + DBS.log.length + ' rounds; the largest change in ln γ was ' + sig(lastRow.d, 2) + '.') : 'Activity coefficients set for the current slag.') +
+        (lastRow.ignored.length ? ' The server database does not describe ' + lastRow.ignored.join(', ') + '; they were treated as ideal diluents.' : ''));
+    } catch (e) { linkMsg('crit', e.message); }
+    btns.forEach(b => { b.disabled = false; }); renderDB();
+  }
+  /* ---- rendering ---- */
+  function renderDB() {
+    const T = last ? last.r.T : 1523.15, ov = activeOverrides(), nUsed = Object.keys(ov).length, g = gammaTable();
+    $('db-summary').textContent = nUsed + ' of ' + KEYS.length + ' standard states use imported data. Activity coefficients: ' + (g ? 'imported table for ' + Object.keys(g).join(', ') + ', inputs for the rest' : 'from the inputs on the left') + '.';
+    /* sources */
+    const sl = $('db-sources'); sl.textContent = '';
+    if (!DBS.sources.length) sl.appendChild(el('p', 'note', 'No data imported yet.'));
+    DBS.sources.forEach(sc => {
+      const li = el('div', 'src');
+      const hd = el('div', 'srch'); hd.appendChild(el('b', null, sc.label));
+      hd.appendChild(el('span', 'note', [sc.format && sc.format !== 'json' ? sc.format.toUpperCase() : sc.kind === 'server' ? 'server' : 'JSON', sc.species.length + ' species', sc.mapped ? sc.mapped + ' in use' : null, sc.gamma ? 'activity table' : null].filter(Boolean).join(' · ')));
+      const rm = el('button', 'linkbtn', 'Remove'); rm.type = 'button';
+      rm.addEventListener('click', () => { for (const k in DBS.map) if (DBS.map[k].src === sc.id) delete DBS.map[k]; DBS.sources = DBS.sources.filter(x => x !== sc); dbSave(); compute(); renderDB(); });
+      hd.appendChild(rm); li.appendChild(hd);
+      sc.warnings.slice(0, 3).forEach(w => li.appendChild(el('p', 'note', w)));
+      if (sc.warnings.length > 3) li.appendChild(el('p', 'note', 'and ' + (sc.warnings.length - 3) + ' more notes.'));
+      sl.appendChild(li);
+    });
+    /* standard states */
+    const t = $('db-table'); t.textContent = '';
+    const th = el('thead'), hr = el('tr'); ['Standard state', 'Used for', 'Data', 'Range, K', 'Δg° at bath T, kJ/mol'].forEach((h, j) => hr.appendChild(el('th', j === 4 ? 'n' : null, h))); th.appendChild(hr); t.appendChild(th);
+    const tb = el('tbody');
+    KEYS.forEach(k => {
+      const tr = el('tr', 'row'); tr.appendChild(el('td', null, k.key)); tr.appendChild(el('td', 'note', k.roles.join('; ')));
+      const td = el('td'), sel = el('select'); sel.id = 'map-' + k.key.replace(/[^A-Za-z0-9]/g, '_'); sel.setAttribute('aria-label', 'Data for ' + k.key);
+      const o0 = el('option', null, 'Built-in'); o0.value = ''; sel.appendChild(o0);
+      DBS.sources.forEach(sc => sc.species.forEach((sp, i) => { if (!FumeDB.compatible(k, sp)) return; const o = el('option', null, sp.name + ' · ' + (sp.src && sc.kind === 'restored' ? sp.src : sc.label)); o.value = sc.id + '|' + i; sel.appendChild(o); }));
+      const m = DBS.map[k.key]; sel.value = m ? m.src + '|' + m.i : '';
+      sel.disabled = sel.options.length < 2;
+      sel.addEventListener('change', () => { if (sel.value) { const [sid, i] = sel.value.split('|'); DBS.map[k.key] = { src: sid, i: +i }; } else delete DBS.map[k.key]; dbSave(); compute(); renderDB(); });
+      td.appendChild(sel); tr.appendChild(td);
+      const sp = chosen(k.key);
+      const rg = sp ? fx(sp.Tmin, 0) + '–' + fx(sp.Tmax, 0) + (T < sp.Tmin || T > sp.Tmax ? ', bath outside' : '') : '';
+      tr.appendChild(el('td', 'note', rg));
+      let dg = '';
+      if (sp) { const a = E.props(k.key, T), b0 = E.builtinProps(k.key, T); const d = ((a[0] - T * a[1]) - (b0[0] - T * b0[1])) / 1000; dg = (d >= 0 ? '+' : '') + fx(d, 2) + (Math.abs(d) > 30 ? ' (check the reference state)' : ''); }
+      tr.appendChild(el('td', 'n', dg)); tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    /* activity coefficients */
+    $('db-usegamma-wrap').hidden = !DBS.sources.some(sc => sc.gamma);
+    $('db-usegamma').checked = DBS.useGamma;
+    const ga = $('db-gtable'); ga.textContent = '';
+    if (last) {
+      const am = E.getActivity(), ghead = el('tr'); ['', 'γ at ' + fx(T - 273.15, 0) + ' °C', 'Source'].forEach((h, j) => ghead.appendChild(el('th', j === 1 ? 'n' : null, h)));
+      const gth = el('thead'); gth.appendChild(ghead); ga.appendChild(gth); const gb = el('tbody');
+      E.SLAG_ACT.forEach(ox => { const tr = el('tr', 'row'); tr.appendChild(el('td', null, ox)); tr.appendChild(el('td', 'n', sig(Math.exp(am.lng(ox, T)), 4))); tr.appendChild(el('td', 'note', g && g[ox] ? 'imported table' : state.gamT === 'regular' ? 'inputs, regular solution' : 'inputs, constant')); gb.appendChild(tr); });
+      ga.appendChild(gb);
+    }
+    /* live link */
+    const inf = DBS.info, st = $('db-link-state');
+    st.textContent = inf ? 'Connected: ' + (inf.backend || '') + ', ' + (inf.source || '') + ', ' + (inf.species || []).length + ' species' + (inf.activity ? ', activity coefficients from ' + (inf.activity.phase || 'the server') : ', no activity model') + (inf.note ? '. ' + inf.note : '') : 'Not connected.';
+    $('db-load').disabled = !inf; $('db-gamma').disabled = !(inf && inf.activity); $('db-iterate').disabled = !(inf && inf.activity);
+    const lg2 = $('db-log'); lg2.textContent = '';
+    if (DBS.log.length) {
+      const h = el('tr'); ['Round', 'T, °C'].concat(E.SLAG_ACT.map(x => 'γ ' + x), ['max |Δ ln γ|']).forEach((x, j) => h.appendChild(el('th', j ? 'n' : null, x)));
+      const hh = el('thead'); hh.appendChild(h); lg2.appendChild(hh); const b = el('tbody');
+      DBS.log.forEach(r => { const tr = el('tr', 'row'); [String(r.k), fx(r.T, 1)].concat(E.SLAG_ACT.map(x => r.g[x] ? sig(r.g[x], 4) : '–'), [sig(r.d, 2)]).forEach((x, j) => tr.appendChild(el('td', j ? 'n' : null, x))); b.appendChild(tr); });
+      lg2.appendChild(b);
+    }
+  }
+
   /* ---------- orchestration ---------- */
   let last = null, timer = null;
   function compute() {
     syncVisibility();
     const inp = readInp(); let r;
+    E.setThermoOverrides(activeOverrides());
     try { r = E.run(inp); } catch (e) { $('status').textContent = ''; $('status').appendChild(msg('crit', 'The model could not run with these inputs: ' + e.message)); return; }
     last = { r, inp }; sweepStale = true;
     renderStatus(r, inp); renderKpis(r, inp); renderNotes(r, inp); renderPanel(); save();
@@ -462,18 +689,19 @@
     else if (state.tab === 'eq') renderEq(r, inp);
     else if (state.tab === 'cycle') renderCycle(r, inp);
     else if (state.tab === 'sweep' && sweepStale) runSweep();
+    else if (state.tab === 'db') renderDB();
   }
   function schedule() { clearTimeout(timer); timer = setTimeout(compute, 180); }
   function setTab(t) {
     state.tab = t;
     document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t ? 'true' : 'false'));
-    ['heat', 'eq', 'cycle', 'sweep', 'formulas', 'model'].forEach(k => { $('tab-' + k).hidden = k !== t; });
+    TABS.forEach(k => { $('tab-' + k).hidden = k !== t; });
     renderPanel(); save();
   }
   function init() {
     const saved = load();
-    if (saved) { if (saved.mode === 'cont' || saved.mode === 'batch') state.mode = saved.mode; if (saved.thermal === 'fixed' || saved.thermal === 'auto') state.thermal = saved.thermal; if (typeof saved.hhvAuto === 'boolean') state.hhvAuto = saved.hhvAuto; if (['heat', 'eq', 'cycle', 'sweep', 'formulas', 'model'].indexOf(saved.tab) >= 0) state.tab = saved.tab; }
-    buildInputs(saved); setupSweep();
+    if (saved) { if (saved.mode === 'cont' || saved.mode === 'batch') state.mode = saved.mode; if (saved.thermal === 'fixed' || saved.thermal === 'auto') state.thermal = saved.thermal; if (typeof saved.hhvAuto === 'boolean') state.hhvAuto = saved.hhvAuto; if (TABS.indexOf(saved.tab) >= 0) state.tab = saved.tab; if (saved.gamT === 'regular' || saved.gamT === 'const') state.gamT = saved.gamT; }
+    dbLoad(); buildInputs(saved); setupSweep(); setupDB();
     $('mode-' + state.mode).checked = true; $('thermal-' + state.thermal).checked = true;
     document.querySelectorAll('input[name="mode"]').forEach(i => i.addEventListener('change', () => { state.mode = i.value; compute(); }));
     document.querySelectorAll('input[name="thermal"]').forEach(i => i.addEventListener('change', () => { state.thermal = i.value; compute(); }));

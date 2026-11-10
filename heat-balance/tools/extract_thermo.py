@@ -31,6 +31,7 @@ cond={
  'SiO2(l)':['SiO2(L)'], 'SiO2(s,l)':['SiO2(Lqz)','SiO2(hqz)','SiO2(L)'],
  'CaO(s)':['CaO(s)'], 'MgO(s)':['MgO(s)'], 'Al2O3(s)':['AL2O3(a)'], 'Fe2O3(s)':['Fe2O3(s)'],
  'H2O(l)':['H2O(L)'], 'Zn(l)':['Zn(cr)','Zn(L)'],
+ 'FeS(l)':['FeS(L)'], 'CaS(s)':['CaS(s)'],
 }
 for k,v in cond.items():
     db[k]={'segs':chain(v),'note':'; '.join(C[n]['thermo'].get('note','') for n in v)}

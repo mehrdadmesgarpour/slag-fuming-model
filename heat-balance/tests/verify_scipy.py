@@ -30,7 +30,7 @@ def zno(T):
     a,b,c=45.338,7.289e-3,-5.732e5; T0=298.15  # same ZnO data as src/engine.js
     return (-350460+a*(T-T0)+b/2*(T*T-T0*T0)-c*(1/T-1/T0), 43.65+a*math.log(T/T0)+b*(T-T0)-c/2*(1/T**2-1/T0**2))
 MAP={'FeO(l)':['FeO(L)'],'Fe2O3(s)':['Fe2O3(s)'],'PbO(l)':['PbO(L)'],'SiO2(l)':['SiO2(L)'],'CaO(s)':['CaO(s)'],'Al2O3(s)':['AL2O3(a)'],'MgO(s)':['MgO(s)'],
-     'Fe':['Fe(c)','Fe(d)','Fe(L)'],'Pb':['Pb(cr)','Pb(L)'],'C(gr)':['C(gr)'],'Fe3O4(s)':['Fe3O4(s)'],'Al':['AL(cr)','AL(L)'],'Si':['Si(cr)','Si(L)']}
+     'Fe':['Fe(c)','Fe(d)','Fe(L)'],'Pb':['Pb(cr)','Pb(L)'],'C(gr)':['C(gr)'],'Fe3O4(s)':['Fe3O4(s)'],'Al':['AL(cr)','AL(L)'],'Si':['Si(cr)','Si(L)'],'Zn(l)':['Zn(cr)','Zn(L)'],'FeS(l)':['FeS(L)']}
 def g0(sp,T):
     th=sp['th']
     if th.endswith('(g)'): h,s=hs(gas[th[:-3]],T)
@@ -59,10 +59,13 @@ for case in data['cases']:
     Gjs=G(x0)
     # start SciPy away from the JS answer: perturb strongly, then minimise
     rng=np.random.default_rng(1); best=None
-    for trial in range(3):
+    for trial in range(8):   # several perturbed starts; only starts that meet the element balance count
         xs=np.maximum(x0*np.exp(rng.normal(0,1.0,len(x0)))+1e-4*rng.random(len(x0)),1e-10)
         res=minimize(G,xs,method='SLSQP',constraints=[{'type':'eq','fun':lambda n:Ak@n-bk,'jac':lambda n:Ak}],bounds=[(1e-14,None)]*len(xs),options={'maxiter':3000,'ftol':1e-15})
+        if float(np.abs(Ak@res.x-bk).max())>1e-9: continue
         if best is None or res.fun<best.fun: best=res
+    if best is None:
+        print(f"{case['name']:20s} SciPy found no start that meets the element balance"); continue
     feas=float(np.abs(Ak@best.x-bk).max())
     big=[j for j in range(len(keep)) if x0[j]>1e-4]
     dev=max(abs(best.x[j]-x0[j])/x0[j] for j in big)

@@ -26,9 +26,54 @@ function nasa7(a, T) {
     R * (a0 + T * (a1 + T * (a2 + T * (a3 + T * a4))))
   ];
 }
-/* [h, s, cp] in J/mol, J/(mol K). Outside the fitted range the heat capacity is held constant. */
-function props(key, T) {
-  const d = THERMO[key];
+/* NASA 9-coefficient form (McBride, Zehe and Gordon 2002): seg = [Tlo, Thi, a1..a7, b1, b2] */
+function nasa9(a, T) {
+  const lt = Math.log(T), T2 = T * T;
+  return [
+    R * T * (-a[2] / T2 + a[3] * lt / T + a[4] + T * (a[5] / 2 + T * (a[6] / 3 + T * (a[7] / 4 + T * a[8] / 5))) + a[9] / T),
+    R * (-a[2] / (2 * T2) - a[3] / T + a[4] * lt + T * (a[5] + T * (a[6] / 2 + T * (a[7] / 3 + T * a[8] / 4))) + a[10]),
+    R * (a[2] / T2 + a[3] / T + a[4] + T * (a[5] + T * (a[6] + T * (a[7] + T * a[8]))))
+  ];
+}
+/* Shomate form (NIST WebBook, Cantera): seg = [Tlo, Thi, A, B, C, D, E, F, G], t = T/1000, h absolute (F includes the formation enthalpy) */
+function shomate(a, T) {
+  const t = T / 1000;
+  return [
+    1000 * (a[2] * t + a[3] * t * t / 2 + a[4] * t * t * t / 3 + a[5] * t * t * t * t / 4 - a[6] / t + a[7]),
+    a[2] * Math.log(t) + a[3] * t + a[4] * t * t / 2 + a[5] * t * t * t / 3 - a[6] / (2 * t * t) + a[8],
+    a[2] + a[3] * t + a[4] * t * t + a[5] * t * t * t + a[6] / (t * t)
+  ];
+}
+/* Calphad Gibbs energy polynomial: seg = [Tlo, Thi, terms], G = sum c T^n (ln T)^m, terms = [[c, n, m], ...].
+   h = G - T dG/dT, s = -dG/dT, cp = -T d2G/dT2 (exact derivatives). */
+function gpoly(a, T) {
+  const lt = Math.log(T); let G = 0, G1 = 0, G2 = 0;
+  for (const [c, n, m] of a[2]) {
+    const Tn = Math.pow(T, n), L = m ? Math.pow(lt, m) : 1, L1 = m ? m * Math.pow(lt, m - 1) : 0, L2 = m > 1 ? m * (m - 1) * Math.pow(lt, m - 2) : 0;
+    G += c * Tn * L;
+    G1 += c * Tn / T * (n * L + L1);
+    G2 += c * Tn / (T * T) * (n * (n - 1) * L + (2 * n - 1) * L1 + L2);
+  }
+  return [G - T * G1, -G1, -T * G2];
+}
+/* Tabulated h, s, cp: cubic Hermite interpolation of h with cp as its derivative, and of s with cp/T */
+function tabulated(d, T) {
+  const X = d.T, n = X.length;
+  let i = 0; while (i < n - 2 && T > X[i + 1]) i++;
+  const x0 = X[i], x1 = X[i + 1], hh = x1 - x0, u = (T - x0) / hh;
+  const H00 = (1 + 2 * u) * (1 - u) * (1 - u), H10 = u * (1 - u) * (1 - u), H01 = u * u * (3 - 2 * u), H11 = u * u * (u - 1);
+  const D00 = 6 * u * (u - 1) / hh, D10 = (1 - u) * (1 - 3 * u), D01 = 6 * u * (1 - u) / hh, D11 = u * (3 * u - 2);
+  const h = H00 * d.h[i] + H10 * hh * d.cp[i] + H01 * d.h[i + 1] + H11 * hh * d.cp[i + 1];
+  const s = H00 * d.s[i] + H10 * hh * d.cp[i] / x0 + H01 * d.s[i + 1] + H11 * hh * d.cp[i + 1] / x1;
+  const cp = D00 * d.h[i] + D10 * d.cp[i] + D01 * d.h[i + 1] + D11 * d.cp[i + 1];
+  return [h, s, cp];
+}
+const EVAL = { nasa7, nasa9, shomate, gpoly };
+/* external records replace built-in ones key by key */
+const OVR = {};
+function setThermoOverrides(map) { for (const k in OVR) delete OVR[k]; if (map) for (const k in map) OVR[k] = map[k]; }
+/* [h, s, cp] in J/mol, J/(mol K), 1 bar. Outside a fitted range the heat capacity is held constant. */
+function evalRecord(d, T) {
   if (d.mk) {
     const a = d.mk[0], b = d.mk[1], c = d.mk[2];
     return [
@@ -37,17 +82,28 @@ function props(key, T) {
       a + b * T + c / (T * T)
     ];
   }
-  const segs = d.segs;
-  let Tb = null, seg = null;
-  if (T < segs[0][0]) { seg = segs[0]; Tb = seg[0]; }
-  else if (T > segs[segs.length - 1][1]) { seg = segs[segs.length - 1]; Tb = seg[1]; }
-  else { for (let i = 0; i < segs.length; i++) { if (T <= segs[i][1]) { seg = segs[i]; break; } } }
   let out;
-  if (Tb === null) out = nasa7(seg, T);
-  else { const p = nasa7(seg, Tb); out = [p[0] + p[2] * (T - Tb), p[1] + p[2] * Math.log(T / Tb), p[2]]; }
+  if (d.model === 'table') {
+    const X = d.T, n = X.length;
+    if (T < X[0] || T > X[n - 1]) { const j = T < X[0] ? 0 : n - 1, Tb = X[j]; out = [d.h[j] + d.cp[j] * (T - Tb), d.s[j] + d.cp[j] * Math.log(T / Tb), d.cp[j]]; }
+    else out = tabulated(d, T);
+  } else {
+    const f = EVAL[d.model || 'nasa7'], segs = d.segs;
+    let Tb = null, seg = null;
+    if (T < segs[0][0]) { seg = segs[0]; Tb = seg[0]; }
+    else if (T > segs[segs.length - 1][1]) { seg = segs[segs.length - 1]; Tb = seg[1]; }
+    else { for (let i = 0; i < segs.length; i++) { if (T <= segs[i][1]) { seg = segs[i]; break; } } }
+    if (Tb === null) out = f(seg, T);
+    else { const p = f(seg, Tb); out = [p[0] + p[2] * (T - Tb), p[1] + p[2] * Math.log(T / Tb), p[2]]; }
+  }
   if (d.dH) { out[0] += d.dH; out[1] += d.dS; }
+  /* gas data given at another standard pressure p_ref: s(1 bar) = s(p_ref) + R ln(p_ref / 1 bar) */
+  if (d.pref && d.pref !== 1e5) out[1] += R * Math.log(d.pref / 1e5);
   return out;
 }
+function props(key, T) { return evalRecord(OVR[key] || THERMO[key], T); }
+function builtinProps(key, T) { return evalRecord(THERMO[key], T); }
+function builtinRecord(key) { return THERMO[key]; }
 
 /* ---- model species ---- */
 const SP = [];
@@ -76,12 +132,53 @@ addSp('C', 'pure', { C: 1 }, 'C(gr)', 1, 'fuel');
 addSp('Fe3O4', 'pure', { Fe: 3, O: 4 }, 'Fe3O4(s)', 1, 'Fe');
 addSp('Al', 'pure', { Al: 1 }, 'Al', 1, 'Al');
 addSp('Si', 'pure', { Si: 1 }, 'Si', 1, 'Si');
+addSp('FeS', 'pure', { Fe: 1, S: 1 }, 'FeS(l)', 1, 'Fe');
 const NS = SP.length;
 const SI = {}; SP.forEach((s, i) => { SI[s.id] = i; });
 const GROUPS = ['fuel', 'Al', 'Zn', 'Pb', 'Fe', 'Si'];
 
-function spProps(i, T, cold) { const s = SP[i]; const p = props(cold ? s.cold : s.th, T); return [p[0] * s.f, p[1] * s.f, p[2] * s.f]; }
-function hSp(i, T, cold) { return spProps(i, T, cold)[0]; }
+/* Slag activity coefficients. Each model gives ln(gamma) and the partial excess enthalpy hE = R d(ln gamma)/d(1/T):
+   const: gamma independent of T (hE = 0, the excess is entropic); regular: ln gamma = ln gamma_ref Tref/T (hE = R Tref ln gamma_ref);
+   table: ln gamma linear in 1/T between tabulated points, extrapolated with the end slopes. */
+const SLAG_ACT = ['ZnO', 'PbO', 'FeO', 'FeO1.5'];
+function activityModel(spec) {
+  if (!spec) return IDEAL;
+  if (spec.lng) return spec;
+  if (spec.mode === undefined) spec = { mode: 'const', g: spec }; // plain map of constant gammas
+  const g = spec.g || {}, Tref = spec.Tref || 1523.15, mode = spec.mode, tab = spec.table || {};
+  const lng = {}, hE = {};
+  const pre = {};
+  for (const id in tab) {
+    const t = tab[id]; if (!t || !t.T || t.T.length < 1) continue;
+    const pts = t.T.map((T, j) => [1 / T, Math.log(t.g[j])]).sort((p, q) => p[0] - q[0]);
+    pre[id] = pts;
+  }
+  function one(id, T) {
+    const pts = pre[id];
+    if (pts) {
+      if (pts.length === 1) return [pts[0][1], 0];
+      const x = 1 / T; let j = 0; while (j < pts.length - 2 && x > pts[j + 1][0]) j++;
+      const sl = (pts[j + 1][1] - pts[j][1]) / (pts[j + 1][0] - pts[j][0]);
+      return [pts[j][1] + sl * (x - pts[j][0]), R * sl];
+    }
+    const v = g[id]; if (!(v > 0)) return [0, 0];
+    const L = Math.log(v);
+    return mode === 'regular' ? [L * Tref / T, R * Tref * L] : [L, 0];
+  }
+  return { spec, lng: (id, T) => one(id, T)[0], ex: one, key: JSON.stringify(spec) };
+}
+const IDEAL = { lng: () => 0, ex: () => [0, 0], key: 'ideal' };
+let ACT = IDEAL;
+function setActivity(spec) { ACT = activityModel(spec); return ACT; }
+function spProps(i, T, cold, act) {
+  const s = SP[i]; const p = props(cold ? s.cold : s.th, T); const out = [p[0] * s.f, p[1] * s.f, p[2] * s.f];
+  if (s.phase === 'slag' && !cold) {
+    const e = (act || ACT).ex(s.id, T);
+    if (e[0] !== 0 || e[1] !== 0) { out[0] += e[1]; out[1] += (e[1] - R * T * e[0]) / T; }
+  }
+  return out;
+}
+function hSp(i, T, cold, act) { return spProps(i, T, cold, act)[0]; }
 
 function solveLinear(A, rhs, n) {
   for (let c = 0; c < n; c++) {
@@ -104,7 +201,7 @@ function solveLinear(A, rhs, n) {
 }
 
 /* Gibbs energy minimisation at fixed T and P for element amounts b (mol).
-   Gas: ideal. Slag: solution of single-cation oxides with constant activity coefficients gam.
+   Gas: ideal. Slag: solution of single-cation oxides; activity coefficients from the model gam (see activityModel).
    Other condensed phases: pure. Method: Lagrangian (RAND / White-Johnson-Dantzig) Newton iteration
    on element potentials, phase totals and pure-phase amounts, with phase addition and removal. */
 function equilibrate(b, T, P, gam, warm) {
@@ -135,11 +232,11 @@ function equilibrate(b, T, P, gam, warm) {
   const lnP = Math.log(P);
   const g = new Float64Array(nS), gc = new Float64Array(nC), g0 = new Float64Array(nS);
   const a = [], ac = [];
+  const am = gam === undefined ? ACT : activityModel(gam);
   for (let q = 0; q < nS; q++) {
-    const i = sol[q], p = spProps(i, T);
+    const i = sol[q], p = spProps(i, T, false, IDEAL), pe = spProps(i, T, false, am);
     g0[q] = (p[0] - T * p[1]) / (R * T);
-    g[q] = g0[q] + (SP[i].phase === 'gas' ? lnP : 0) +
-      (SP[i].phase === 'slag' && gam && gam[SP[i].id] ? Math.log(gam[SP[i].id]) : 0);
+    g[q] = (pe[0] - T * pe[1]) / (R * T) + (SP[i].phase === 'gas' ? lnP : 0);
     a.push(el.map(k => SP[i].a[k]));
   }
   for (let c = 0; c < nC; c++) {
@@ -157,14 +254,14 @@ function equilibrate(b, T, P, gam, warm) {
   /* Oxygen needed by the oxide and gas species when no reduced pure phase is available as a sink.
      If it exceeds the oxygen present, the element balance cannot be met by the solution phases alone. */
   const cIdx = id => pure.indexOf(SI[id]);
-  const sinkDef = [['Pb', 1], ['C', 1], ['Fe', 1], ['Si', 2], ['Al', 1.5]];
-  const sinks = sinkDef.map(r => ({ id: r[0], c: cIdx(r[0]), b: bs[EI[r[0]]], o: r[1] }));
+  /* [phase, element, O per element]; Pb and Zn can also leave as vapour, so they count only when there is no gas phase */
+  const sinkDef = [['Pb', 'Pb', 1], ['Zn(l)', 'Zn', 1], ['C', 'C', 1], ['Fe', 'Fe', 1], ['Si', 'Si', 2], ['Al', 'Al', 1.5]];
+  const sinks = sinkDef.map(r => ({ id: r[0], c: cIdx(r[0]), b: bs[EI[r[1]]], o: r[2], volatile: r[1] === 'Pb' || r[1] === 'Zn' }));
   const gasOff = () => pGas < 0 || !pOn[pGas];
   function oxygenShort() {
     let need = bs[EI.Ca] + bs[EI.Mg];
     const off = gasOff();
-    if (off) need += bs[EI.Zn];
-    sinks.forEach(r => { if (r.id === 'Pb' && !off) return; if (r.c < 0 || !active[r.c]) need += r.b * r.o; });
+    sinks.forEach(r => { if (r.volatile && !off) return; if (r.c < 0 || !active[r.c]) need += r.b * r.o; });
     return need > bs[EI.O] * (1 - 1e-9);
   }
   /* oxygen beyond what the condensed oxides can hold must leave as gas */
@@ -176,8 +273,8 @@ function equilibrate(b, T, P, gam, warm) {
     let best = -1, bv = Infinity;
     const off = gasOff();
     sinks.forEach((r, j) => {
-      if (r.c < 0 || active[r.c] || r.b <= 0 || (r.id === 'Pb' && !off)) return;
-      let d = j; // default order: Pb, C, Fe, Si, Al
+      if (r.c < 0 || active[r.c] || r.b <= 0 || (r.volatile && !off)) return;
+      let d = j; // default order: Pb, Zn(l), C, Fe, Si, Al
       if (usePi) { d = gc[r.c]; for (let k = 0; k < nE; k++) d -= ac[r.c][k] * pi[k]; }
       if (d < bv) { bv = d; best = r.c; }
     });
@@ -303,24 +400,40 @@ function equilibrate(b, T, P, gam, warm) {
   let converged = false;
   function run(useWarm, damp) {
     if (useWarm) warmStart(); else coldStart();
+    const seen = new Set(); let removeFirst = false, gasRetry = false;
     for (let outer = 0; outer < 60; outer++) {
       const ok = newton(damp < 1 ? 1500 : 400, damp);
-      if (!ok) return false;
+      if (!ok) {
+        /* a vanishing gas made only of vapours of pure condensed phases (e.g. Zn over liquid zinc) makes the matrix singular:
+           restart once without the gas phase, keeping the condensed phases found so far; the saturation test below
+           brings the gas back if it is stable */
+        if (pGas >= 0 && canVanish[pGas] && pOn[pGas] && !gasRetry) {
+          const keep = Array.from(active); coldStart();
+          for (let c = 0; c < nC; c++) { active[c] = keep[c] || active[c]; if (active[c]) ncond[c] = 0; }
+          pOn[pGas] = 0; gasRetry = true; seen.clear(); continue;
+        }
+        return false;
+      }
       let turned = false;
       for (let p = 0; p < nP && !turned; p++) if (!pOn[p] && flips[p] < 3) {
         const Q = saturation(p);
         if (Q > 1 + 1e-9) { phaseOn(p, Q); flips[p]++; turned = true; }
       }
       if (turned) continue;
+      /* a repeated phase set means the add-then-remove order is cycling: switch to remove-then-add, then give up */
+      const sig = Array.from(active).join('') + Array.from(pOn).join('') + (removeFirst ? 'r' : 'a');
+      if (seen.has(sig)) { if (removeFirst) return false; removeFirst = true; seen.clear(); }
+      seen.add(sig);
       let best = -1, bv = -1e-9;
       for (let c = 0; c < nC; c++) {
         if (active[c]) continue;
         let d = gc[c]; for (let k = 0; k < nE; k++) d -= ac[c][k] * pi[k];
         if (d < bv) { bv = d; best = c; }
       }
-      if (best >= 0) { active[best] = 1; ncond[best] = 0; continue; }
       let worst = -1, wv = -1e-14;
       for (let c = 0; c < nC; c++) if (active[c] && ncond[c] < wv) { wv = ncond[c]; worst = c; }
+      if (removeFirst && worst >= 0) { active[worst] = 0; ncond[worst] = 0; continue; }
+      if (best >= 0) { active[best] = 1; ncond[best] = 0; continue; }
       if (worst >= 0) { active[worst] = 0; ncond[worst] = 0; continue; }
       return true;
     }
@@ -349,16 +462,16 @@ function equilibrate(b, T, P, gam, warm) {
   }
   let G = 0; for (let k = 0; k < nE; k++) G += pi[k] * be[k];
   const piFull = new Float64Array(NE).fill(NaN); el.forEach((k, j) => { piFull[k] = pi[j]; });
-  return { n, act, pi: piFull, T, P, G: G * R * T * btot, converged, iters, phaseMol, noGas: pGas < 0 || !pOn[pGas] };
+  return { n, act, pi: piFull, T, P, G: G * R * T * btot, converged, iters, phaseMol, noGas: pGas < 0 || !pOn[pGas], actModel: am };
 }
 
 /* total enthalpy (J) of species amounts n at T, model states */
-function enthalpy(n, T, phase) {
+function enthalpy(n, T, phase, act) {
   let H = 0;
-  for (let i = 0; i < NS; i++) if (n[i] !== 0 && (!phase || SP[i].phase === phase)) H += n[i] * hSp(i, T);
+  for (let i = 0; i < NS; i++) if (n[i] !== 0 && (!phase || SP[i].phase === phase)) H += n[i] * hSp(i, T, false, act);
   return H;
 }
-function heatCap(n, T) { let c = 0; for (let i = 0; i < NS; i++) if (n[i] !== 0) c += n[i] * spProps(i, T)[2]; return c; }
+function heatCap(n, T, act) { let c = 0; for (let i = 0; i < NS; i++) if (n[i] !== 0) c += n[i] * spProps(i, T, false, act)[2]; return c; }
 
 /* ---- feed streams ---- */
 const MOX = { ZnO: AW.Zn + AW.O, PbO: AW.Pb + AW.O, FeO: AW.Fe + AW.O, Fe2O3: 2 * AW.Fe + 3 * AW.O,
@@ -388,12 +501,13 @@ function hhvEstimate(c) { // Channiwala and Parikh (2002), MJ/kg dry
 const ASH_SIO2 = 0.6;
 
 function elemOf(n) { const b = new Float64Array(NE); for (let i = 0; i < NS; i++) if (n[i] !== 0) for (let k = 0; k < NE; k++) b[k] += n[i] * SP[i].a[k]; return b; }
-function groupH298(n, out) { for (let i = 0; i < NS; i++) if (n[i] !== 0) { const gk = SP[i].group; if (gk !== 'none') out[gk] = (out[gk] || 0) + n[i] * hSp(i, T0); } return out; }
+function groupH298(n, out, act) { for (let i = 0; i < NS; i++) if (n[i] !== 0) { const gk = SP[i].group; if (gk !== 'none') out[gk] = (out[gk] || 0) + n[i] * hSp(i, T0, false, act); } return out; }
 function massOf(n, phase) { let m = 0; for (let i = 0; i < NS; i++) if (!phase || SP[i].phase === phase) m += n[i] * SP[i].M; return m / 1000; }
 
 /* Feed rates per hour. Each stream: b (mol/h of elements), H (J/h at inlet state), sens (J/h above 25 C),
    g298 (J/h, enthalpy at 25 C by element group), melt (J/h, crystalline minus slag-state enthalpy at 25 C). */
 function buildFeeds(inp) {
+  setActivity(gamOf(inp));
   const warn = [];
   const sp = slagPerKg(inp.slag);
   if (sp.oxideSum > 100.05) warn.push('Slag oxides sum to ' + sp.oxideSum.toFixed(1) + ' wt%. They were scaled to 100 %.');
@@ -425,8 +539,11 @@ function buildFeeds(inp) {
   coal.b[EI.C] += nC; coal.b[EI.H] += nH + 2 * nW; coal.b[EI.O] += nO + nW; coal.b[EI.N] += nN; coal.b[EI.S] += nS;
   const hOrg = mDry * hhv * 1e6 + nC * props('CO2(g)', T0)[0] + nH / 2 * props('H2O(l)', T0)[0] + nS * props('SO2(g)', T0)[0];
   const hWat = nW * props('H2O(l)', T0)[0];
+  /* ash enters as crystalline oxides at 25 C; its melting appears with that of the cold charge */
+  let hAsh = 0, meltAsh = 0;
+  for (let i = 0; i < NS; i++) if (ashN[i] !== 0) { const hc = hSp(i, T0, true); hAsh += ashN[i] * hc; meltAsh += ashN[i] * (hc - hSp(i, T0)); }
   coal.g298 = groupH298(ashN, {}); coal.g298.fuel = (coal.g298.fuel || 0) + hOrg + hWat;
-  coal.H = hOrg + hWat + enthalpy(ashN, T0); coal.mass = eff;
+  coal.H = hOrg + hWat + hAsh; coal.melt = meltAsh; coal.mass = eff;
   coal.info = { hhv, lhv: hhv - 0.2182 * u.H, nCtotal: c.rate * (1 - c.moist / 100) * 10 * u.C / AW.C, u };
 
   /* aluminium */
@@ -465,10 +582,16 @@ function describe(eq, P) {
     pO2: eq.act[SI.O2] / 1.01325, coco2: gas.CO2 > 0 ? gas.CO / gas.CO2 : NaN,
     aFe: eq.act[SI.Fe], aC: eq.act[SI.C], aMag: eq.act[SI.Fe3O4],
     aZnO: eq.act[SI.ZnO], aFeO: eq.act[SI.FeO], pZn: eq.act[SI['Zn(g)']] / 1.01325,
-    solids: { Fe: mg('Fe'), Pb: mg('Pb'), C: mg('C'), Fe3O4: mg('Fe3O4'), Al: mg('Al'), Si: mg('Si') }
+    solids: { Fe: mg('Fe'), Pb: mg('Pb'), C: mg('C'), Fe3O4: mg('Fe3O4'), Al: mg('Al'), Si: mg('Si'), FeS: mg('FeS') },
+    aFeS: eq.act[SI.FeS], aCaS: checkActivity(eq, 'CaS(s)', { Ca: 1, S: 1 }), aZnl: checkActivity(eq, 'Zn(l)', { Zn: 1 })
   };
 }
 
+/* activity of a phase that is not part of the minimisation, from the element potentials */
+function checkActivity(eq, key, comp) {
+  let s = 0; for (const e in comp) { const v = eq.pi[EI[e]]; if (!isFinite(v)) return NaN; s += comp[e] * v; }
+  const p = props(key, eq.T); return Math.exp(s - (p[0] - eq.T * p[1]) / (R * eq.T));
+}
 /* solve T (K) such that fn(T) = 0, fn increasing in T */
 function solveT(fn, Tg, lo, hi) {
   let a = lo, b = hi, T = Math.min(Math.max(Tg, lo), hi), f = fn(T), last = null;
@@ -486,13 +609,16 @@ function solveT(fn, Tg, lo, hi) {
 }
 const TMIN = 1073.15, TMAX = 2273.15;
 
-function gamOf(inp) { return { ZnO: inp.gam.ZnO, PbO: inp.gam.PbO, FeO: inp.gam.FeO, 'FeO1.5': inp.gam.FeO15 }; }
+function gamOf(inp) {
+  return { mode: inp.gamT || 'const', Tref: (inp.gamTref != null ? inp.gamTref : 1250) + 273.15,
+    g: { ZnO: inp.gam.ZnO, PbO: inp.gam.PbO, FeO: inp.gam.FeO, 'FeO1.5': inp.gam.FeO15 }, table: inp.gamTable || null };
+}
 
 /* One equilibrium stage: bath contents nBath (mol, enthalpy Hbath) plus the feed streams for a duration dt (h).
    Optional second zone: a share of the blast does not equilibrate with the slag. It burns the bath gas
    (gas-only equilibrium at bath temperature, ZnO and PbO fume allowed) and a fraction hte of that heat returns to the bath. */
 function stage(nBath, Hbath, feeds, dt, inp, Tfix, Tguess, warm) {
-  const P = inp.op.P * 1.01325, gam = gamOf(inp);
+  const P = inp.op.P * 1.01325, gam = ACT;
   const fpc = Math.min(Math.max((inp.blast.pc || 0) / 100, 0), 0.95), hte = Math.min(Math.max((inp.blast.hte == null ? 100 : inp.blast.hte) / 100, 0), 1);
   const b = nBath ? elemOf(nBath) : new Float64Array(NE);
   let Hin = Hbath || 0;
@@ -512,7 +638,7 @@ function stage(nBath, Hbath, feeds, dt, inp, Tfix, Tguess, warm) {
       for (let i = 0; i < NS; i++) if (SP[i].phase === 'gas') { nGas[i] = eq.n[i]; HgasA += eq.n[i] * hSp(i, T); }
       const bB = elemOf(nGas); for (let k = 0; k < NE; k++) bB[k] += bPc[k];
       eqB = equilibrate(bB, T, P, null, wB); wB = eqB.converged ? eqB : null;
-      HgasB = enthalpy(eqB.n, T);
+      HgasB = enthalpy(eqB.n, T, null, IDEAL);
       Qpc = HgasA + HinPc - HgasB;
     }
     return { val: Hout + loss - Hin - hte * Qpc, slope: Math.max(heatCap(eq.n, T), 1), tol: 1e-7 * Math.abs(Hin) + 1, Hout, Qpc, HgasB };
@@ -527,14 +653,14 @@ function stage(nBath, Hbath, feeds, dt, inp, Tfix, Tguess, warm) {
   const pcLost = (1 - hte) * r.Qpc;
   if (eq) eq.eqB = eqB;
   return { eq, eqB, T, loss, pcLost, gasOut, bath, bound, b,
-    surplus: Hin + HinPc - enthalpy(bath, T) - enthalpy(gasOut, T) - loss - pcLost,
+    surplus: Hin + HinPc - enthalpy(bath, T) - enthalpy(gasOut, T, null, IDEAL) - loss - pcLost,
     converged: eq.converged && (!eqB || eqB.converged) };
 }
 
 /* heat balance items (J). Positive values are heat sources, negative values are heat sinks. */
 const GROUP_NAMES = { fuel: 'Coal oxidation (C, H, S)', Al: 'Aluminium oxidation', Zn: 'ZnO reduction and Zn vaporisation',
-  Pb: 'PbO reduction and Pb vaporisation', Fe: 'Iron oxide redox', Si: 'Silica reduction' };
-function sensibleOf(n, T, phase) { let h = 0; for (let i = 0; i < NS; i++) if (n[i] !== 0 && (!phase || SP[i].phase === phase)) h += n[i] * (hSp(i, T) - hSp(i, T0)); return h; }
+  Pb: 'PbO reduction and Pb vaporisation', Fe: 'Iron oxides, iron and matte', Si: 'Silica reduction' };
+function sensibleOf(n, T, phase, act) { let h = 0; for (let i = 0; i < NS; i++) if (n[i] !== 0 && (!phase || SP[i].phase === phase)) h += n[i] * (hSp(i, T, false, act) - hSp(i, T0, false, act)); return h; }
 function balanceItems(inList, gOut, sens, loss, meltJ, pcLost) {
   const items = [], gIn = {};
   inList.forEach(s => {
@@ -542,7 +668,7 @@ function balanceItems(inList, gOut, sens, loss, meltJ, pcLost) {
     if (Math.abs(s.sens) > 0) items.push({ key: 'sens:' + s.name, label: 'Sensible heat, ' + s.name.toLowerCase(), val: s.sens, kind: 'sens' });
   });
   GROUPS.forEach(gk => { const v = (gIn[gk] || 0) - (gOut[gk] || 0); if (Math.abs(v) > 1) items.push({ key: 'chem:' + gk, label: GROUP_NAMES[gk], val: v, kind: 'chem' }); });
-  if (Math.abs(meltJ) > 0) items.push({ key: 'melt', label: 'Melting of cold charge', val: meltJ, kind: 'chem' });
+  if (Math.abs(meltJ) > 0) items.push({ key: 'melt', label: 'Melting of cold charge and coal ash', val: meltJ, kind: 'chem' });
   items.push({ key: 'out:slag', label: 'Sensible heat, product slag', val: -sens.slag, kind: 'sens' });
   items.push({ key: 'out:gas', label: 'Sensible heat, off-gas', val: -sens.gas, kind: 'sens' });
   if (Math.abs(sens.pure) > 0) items.push({ key: 'out:solids', label: 'Sensible heat, metal and solids', val: -sens.pure, kind: 'sens' });
@@ -574,8 +700,8 @@ function runContinuous(inp, warm) {
   const Tfix = inp.thermal === 'fixed' ? inp.op.T + 273.15 : null;
   const st = stage(null, 0, feeds, 1, inp, Tfix, inp.op.T + 273.15, warm);
   const inList = [feeds.hot, feeds.cld, feeds.coal, feeds.al, feeds.bl];
-  const gOut = groupH298(st.gasOut, groupH298(st.bath, {}));
-  const items = balanceItems(inList, gOut, { slag: sensibleOf(st.bath, st.T, 'slag'), gas: sensibleOf(st.gasOut, st.T), pure: sensibleOf(st.bath, st.T, 'pure') }, st.loss, feeds.cld.melt, st.pcLost);
+  const gOut = groupH298(st.gasOut, groupH298(st.bath, {}), IDEAL);
+  const items = balanceItems(inList, gOut, { slag: sensibleOf(st.bath, st.T, 'slag'), gas: sensibleOf(st.gasOut, st.T, null, IDEAL), pure: sensibleOf(st.bath, st.T, 'pure') }, st.loss, feeds.cld.melt + feeds.coal.melt, st.pcLost);
   const d = describe(st.eq, inp.op.P * 1.01325);
   const znIn = feeds.hot.b[EI.Zn] + feeds.cld.b[EI.Zn], pbIn = feeds.hot.b[EI.Pb] + feeds.cld.b[EI.Pb];
   const v = volatilised(st);
@@ -609,7 +735,7 @@ function runBatch(inp) {
     warm = st.eq.converged ? st.eq : null; allConv = allConv && st.converged; if (st.bound) bound = st.bound;
     T = st.T;
     for (let i = 0; i < NS; i++) { gasCum[i] += st.gasOut[i]; if (SP[i].phase === 'gas') bathGasCum[i] += st.eq.n[i]; }
-    sensGas += sensibleOf(st.gasOut, T);
+    sensGas += sensibleOf(st.gasOut, T, null, IDEAL);
     const d = describe(st.eq, P), v = volatilised(st);
     znCum += v.zn; pbCum += v.pb;
     surplusCum += st.surplus; lossCum += st.loss; pcCum += st.pcLost;
@@ -618,8 +744,8 @@ function runBatch(inp) {
     nBath = st.bath; Hbath = enthalpy(nBath, T); last = { st, d };
   }
   const inList = [feeds.hot, feeds.cld, scaleStream(feeds.coal, total), scaleStream(feeds.al, total), scaleStream(feeds.bl, total)];
-  const gOut = groupH298(gasCum, groupH298(nBath, {}));
-  const items = balanceItems(inList, gOut, { slag: sensibleOf(nBath, T, 'slag'), gas: sensGas, pure: sensibleOf(nBath, T, 'pure') }, lossCum, feeds.cld.melt, pcCum);
+  const gOut = groupH298(gasCum, groupH298(nBath, {}), IDEAL);
+  const items = balanceItems(inList, gOut, { slag: sensibleOf(nBath, T, 'slag'), gas: sensGas, pure: sensibleOf(nBath, T, 'pure') }, lossCum, feeds.cld.melt + feeds.coal.melt * total, pcCum);
   const d = last.d;
   const bg = gasFractions(bathGasCum); d.gas = bg.x; d.gasMol = bg.mol;
   const fpc = (inp.blast.pc || 0) > 0;
@@ -653,5 +779,23 @@ function reactionTable(T) {
   });
 }
 
-const FumeEngine = { R, T0, AW, ELS, EI, SP, SI, NS, NE, MOX, props, spProps, equilibrate, enthalpy, heatCap, buildFeeds, slagPerKg,
+/* every standard-state record the model uses, with its formula and role, for mapping external data */
+function thermoKeys() {
+  const out = [], seen = {};
+  const add = (key, comp, role, phase) => { if (seen[key]) { if (seen[key].roles.indexOf(role) < 0) seen[key].roles.push(role); return; } const r = { key, comp, roles: [role], phase }; seen[key] = r; out.push(r); };
+  SP.forEach(sp => {
+    if (sp.id === 'Other') return;
+    const comp = {}; for (const e in sp.comp) comp[e] = sp.comp[e] / sp.f;
+    const role = sp.phase === 'gas' ? 'gas species' : sp.phase === 'slag' ? 'slag standard state of ' + sp.id : 'pure condensed phase';
+    add(sp.th, comp, role, sp.phase === 'gas' ? 'gas' : 'cond');
+    if (sp.cold !== sp.th) add(sp.cold, comp, 'crystalline state for cold charge and ash', 'cond');
+  });
+  add('H2O(l)', { H: 2, O: 1 }, 'coal moisture', 'cond');
+  add('CaS(s)', { Ca: 1, S: 1 }, 'saturation check only', 'cond');
+  add('Zn(l)', { Zn: 1 }, 'saturation check only', 'cond');
+  return out;
+}
+function getActivity() { return ACT; }
+const FumeEngine = { R, T0, AW, ELS, EI, SP, SI, NS, NE, MOX, props, builtinProps, builtinRecord, evalRecord, setThermoOverrides, thermoKeys, activityModel, setActivity, getActivity, IDEAL, SLAG_ACT,
+  gamOf, checkActivity, spProps, equilibrate, enthalpy, heatCap, buildFeeds, slagPerKg,
   hhvEstimate, describe, runContinuous, runBatch, run, reactionTable, elemOf, massOf, TMIN, TMAX, NM3 };

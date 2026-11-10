@@ -1,0 +1,20 @@
+units: {length: m, quantity: mol, activation-energy: J/mol}
+phases:
+- name: slag
+  thermo: ideal-condensed
+  standard-concentration-basis: unity
+  elements: [Zn, Fe, O]
+  species: [ZNO_L, FEO_L]
+species:
+- name: ZnO_s
+  composition: {Zn: 1, O: 1}
+  thermo: {model: constant-cp, T0: 1523.15 K, h0: -288335.9302257811 J/mol, s0: 123.42199259758577 J/mol/K, cp0: 56.19316988528687 J/mol/K, reference-pressure: 1 bar}
+  equation-of-state: {model: constant-volume, molar-volume: 0.0145 m^3/kmol}
+- name: ZNO_L
+  composition: {Zn: 1, O: 1}
+  thermo: {model: constant-cp, T0: 1523.15 K, h0: -263335.9302257811 J/mol, s0: 133.42199259758576 J/mol/K, cp0: 56.19316988528687 J/mol/K, reference-pressure: 1 bar}
+  equation-of-state: {model: constant-volume, molar-volume: 0.0145 m^3/kmol}
+- name: FEO_L
+  composition: {Fe: 1, O: 1}
+  thermo: {model: constant-cp, T0: 1523.15 K, h0: -250000 J/mol, s0: 80 J/mol/K, cp0: 68 J/mol/K, reference-pressure: 1 bar}
+  equation-of-state: {model: constant-volume, molar-volume: 0.016 m^3/kmol}

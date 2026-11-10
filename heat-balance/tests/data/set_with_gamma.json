@@ -1,0 +1,1 @@
+{"format":"fuming-thermo-1","species":[{"name":"ZnO(s)","composition":{"Zn":1,"O":1},"model":"mk","H298":-350460,"S298":43.65,"mk":[45.338,0.007289,-573200]}],"activity":{"table":{"ZnO":{"T":[1373.15,1673.15],"gamma":[2.6,1.7]}}}}

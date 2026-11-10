@@ -23,17 +23,19 @@ for (const [name, inp] of cases) {
   const b = elements(inp), gam = gamOf(inp), T = inp.op.T + 273.15, P = inp.op.P * 1.01325;
   const eq = E.equilibrate(b, T, P, gam, null), k = kkt(eq, b, gam), d = E.describe(eq, P);
   const ok = eq.converged && k.stat < 1e-9 && k.elem < 1e-11 && !k.bad; if (!ok) fail++;
-  console.log((ok ? 'ok   ' : 'FAIL ') + name.padEnd(20), 'iterations', String(eq.iters).padStart(3), 'stationarity', k.stat.toExponential(1), 'elements', k.elem.toExponential(1),
+  console.log((ok ? 'ok   ' : 'FAIL ') + name.padEnd(36), 'iterations', String(eq.iters).padStart(3), 'stationarity', k.stat.toExponential(1), 'elements', k.elem.toExponential(1),
     '| Zn in slag', d.el.Zn.toFixed(2), 'wt%  log pO2', Math.log10(d.pO2).toFixed(2), ' solids:', Object.entries(d.solids).filter(x => x[1] > 1e-6).map(x => x[0] + ' ' + x[1].toFixed(0) + ' kg').join(', ') || 'none');
   dump.push({ name, T, P, gam, b: Array.from(b), n: Array.from(eq.n) });
 }
 fs.writeFileSync(path.join(__dirname, 'cases.json'), JSON.stringify({ els: E.ELS, species: E.SP.map(s => ({ id: s.id, phase: s.phase, comp: s.comp, th: s.th, f: s.f })), cases: dump }));
 /* energy closure of the full model: the heat balance items must add up to the residual */
-for (const [mode, thermal] of [['cont', 'fixed'], ['cont', 'auto'], ['batch', 'fixed'], ['batch', 'auto']]) {
-  const inp = base(); inp.mode = mode; inp.thermal = thermal; inp.al.rate = 300; inp.coal.rate = 3000; inp.blast.rate = 18000; if (mode === 'batch') inp.slag.rate = 50;
+const variants = [['', i => {}], ['regular gamma', i => { i.gamT = 'regular'; i.gamTref = 1250; }], ['post-combustion 30 %', i => { i.blast.pc = 30; i.blast.hte = 70; }],
+  ['cold charge 20 %', i => { i.slag.cold = 20; }], ['gamma table', i => { i.gamTable = { ZnO: { T: [1373.15, 1673.15], g: [2.6, 1.7] } }; }]];
+for (const [vt, vf] of variants) for (const [mode, thermal] of [['cont', 'fixed'], ['cont', 'auto'], ['batch', 'fixed'], ['batch', 'auto']]) {
+  const inp = base(); inp.mode = mode; inp.thermal = thermal; inp.al.rate = 300; inp.coal.rate = 3000; inp.blast.rate = 18000; if (mode === 'batch') inp.slag.rate = 50; vf(inp);
   const r = E.run(inp); let s = 0; r.items.forEach(it => { s += it.val; });
   const err = Math.abs(s - r.surplus) / 3.6e9, ok = r.converged && err < 1e-6; if (!ok) fail++;
-  console.log((ok ? 'ok   ' : 'FAIL ') + (mode + ' ' + thermal).padEnd(20), 'T', (r.T - 273.15).toFixed(1), 'C  Zn recovery', r.k.znRec.toFixed(1), '%  energy closure error', err.toExponential(1), 'MW');
+  console.log((ok ? 'ok   ' : 'FAIL ') + (mode + ' ' + thermal + (vt ? ', ' + vt : '')).padEnd(36), 'T', (r.T - 273.15).toFixed(1), 'C  Zn recovery', r.k.znRec.toFixed(2), '%  energy closure error', err.toExponential(1), 'MW');
 }
 console.log(fail ? fail + ' FAILED' : 'all passed');
 process.exit(fail ? 1 : 0);

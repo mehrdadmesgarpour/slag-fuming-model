@@ -1,0 +1,40 @@
+{
+ "species": {
+  "ZnO(s)": {
+   "phase": "ZINCITE"
+  },
+  "FeO(l)": {
+   "phase": "SLAG",
+   "endmember": [
+    [
+     "FEO"
+    ]
+   ]
+  },
+  "SiO2(l)": {
+   "phase": "SLAG",
+   "endmember": [
+    [
+     "SIO2"
+    ]
+   ]
+  }
+ },
+ "slag": {
+  "phase": "SLAG",
+  "oxides": {
+   "ZnO": {
+    "std": "ZnO(s)",
+    "factor": 1
+   },
+   "FeO": {
+    "std": "FeO(l)",
+    "factor": 1
+   },
+   "SiO2": {
+    "std": "SiO2(l)",
+    "factor": 1
+   }
+  }
+ }
+}

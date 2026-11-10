@@ -14,16 +14,17 @@ function elements(inp) {
   [f.hot, f.cld, f.coal, f.al, f.bl].forEach(s => { for (let k = 0; k < E.NE; k++) b[k] += s.b[k]; });
   return b;
 }
-/* stat: largest |mu_i/RT - sum_j a_ij pi_j| over species present; elem: element balance error relative to total moles;
+/* gam: activity model or map of constant gammas.
+   stat: largest |mu_i/RT - sum_j a_ij pi_j| over species present; elem: element balance error relative to total moles;
    bad: number of absent pure phases that would lower G by forming */
 function kkt(eq, b, gam) {
-  const T = eq.T, P = eq.P; let stat = 0, bad = 0;
+  const T = eq.T, P = eq.P, act = E.activityModel(gam); let stat = 0, bad = 0;
   E.SP.forEach((s, i) => {
-    const p = E.spProps(i, T); let g = (p[0] - T * p[1]) / (E.R * T), ap = 0;
+    const p = E.spProps(i, T, false, act); let g = (p[0] - T * p[1]) / (E.R * T), ap = 0;
     for (let k = 0; k < E.NE; k++) if (s.a[k]) ap += s.a[k] * eq.pi[k];
     if (isNaN(ap)) return;
     if (s.phase === 'gas') { if (eq.noGas) return; g += Math.log(P) + Math.log(eq.n[i] / eq.phaseMol.gas); }
-    else if (s.phase === 'slag') g += Math.log(gam[s.id] || 1) + Math.log(eq.n[i] / eq.phaseMol.slag);
+    else if (s.phase === 'slag') g += Math.log(eq.n[i] / eq.phaseMol.slag); // ln gamma is inside spProps
     else if (eq.n[i] === 0) { if (g - ap < -1e-7) bad++; return; }
     if (eq.n[i] > 1e-200) stat = Math.max(stat, Math.abs(g - ap));
   });
