@@ -9,12 +9,13 @@
   const DEFAULTS = {
     'slag.rateB': 50, 'slag.rateC': 25, 'slag.T': 1250, 'slag.cold': 0, 'slag.Zn': 12, 'slag.Pb': 1.5, 'slag.Fe': 28, 'slag.fe3': 10,
     'slag.SiO2': 26, 'slag.CaO': 14, 'slag.Al2O3': 5, 'slag.MgO': 2,
-    'coal.rate': 3000, 'coal.moist': 2, 'coal.bypass': 0, 'coal.C': 75, 'coal.H': 4.5, 'coal.O': 7, 'coal.N': 1.5, 'coal.S': 0.8, 'coal.ash': 11.2, 'coal.hhv': 30.6,
-    'al.rate': 300, 'al.metal': 95, 'blast.rate': 18000, 'blast.o2': 21, 'blast.T': 25, 'blast.pc': 0, 'blast.hte': 100,
-    'op.T': 1250, 'op.loss': 6, 'op.P': 1, 'batch.time': 120, 'batch.dt': 2,
-    'gam.ZnO': 2.0, 'gam.PbO': 0.3, 'gam.FeO': 1.0, 'gam.FeO15': 1.5, 'gam.Tref': 1250
+    'coal.rate': 3000, 'coal.moist': 2, 'coal.bypass': 0, 'coal.C': 75, 'coal.H': 4.5, 'coal.O': 7, 'coal.N': 1.5, 'coal.S': 0.8, 'coal.ash': 11.2, 'coal.hhv': 31.4,
+    'coal.ashSiO2': 60, 'coal.ashAl2O3': 30, 'coal.ashCaO': 3.5, 'coal.ashFe2O3': 5, 'coal.ashMgO': 1.5,
+    'al.rate': 300, 'al.metal': 100, 'blast.rate': 18000, 'blast.o2': 21, 'blast.T': 25, 'blast.pc': 0, 'blast.hte': 100,
+    'op.T': 1250, 'op.loss': 6, 'op.P': 1, 'batch.time': 180, 'batch.dt': 2,
+    'gam.ZnO': 2.1, 'gam.PbO': 0.3, 'gam.FeO': 1.0, 'gam.FeO15': 4.3, 'gam.Tref': 1250
   };
-  const state = { mode: 'batch', thermal: 'auto', hhvAuto: true, tab: 'heat', gamT: 'const' };
+  const state = { mode: 'batch', thermal: 'auto', hhvAuto: false, tab: 'heat', gamT: 'const' };
   const TABS = ['heat', 'eq', 'cycle', 'furnace', 'sweep', 'db', 'formulas', 'model'];
   // [key, label, unit, min, max, step, show]
   const F = (k, label, unit, min, max, step, show) => ({ k, label, unit, min, max, step: step || 'any', show });
@@ -28,6 +29,7 @@
     { id: 'coal', title: 'Coal', open: true, parts: [
       { fields: [F('coal.rate', 'Rate', 'kg/h', 0, 50000, 50), F('coal.moist', 'Moisture', '%', 0, 40)] },
       { sub: 'Ultimate analysis, dry wt%', cls: 'three', fields: [F('coal.C', 'C', '', 0, 100), F('coal.H', 'H', '', 0, 20), F('coal.O', 'O', '', 0, 40), F('coal.N', 'N', '', 0, 10), F('coal.S', 'S', '', 0, 10), F('coal.ash', 'Ash', '', 0, 60)] },
+      { sub: 'Ash analysis, wt%', cls: 'three', fields: [F('coal.ashSiO2', 'SiO₂', '', 0, 100), F('coal.ashAl2O3', 'Al₂O₃', '', 0, 100), F('coal.ashCaO', 'CaO', '', 0, 100), F('coal.ashFe2O3', 'Fe₂O₃', '', 0, 100), F('coal.ashMgO', 'MgO', '', 0, 100)] },
       { check: 'hhvAuto', label: 'Estimate the heating value from the analysis' },
       { fields: [F('coal.hhv', 'HHV, dry', 'MJ/kg', 5, 45), F('coal.bypass', 'Leaves unreacted', '%', 0, 90)] },
       { note: 'note-coal' }] },
@@ -45,7 +47,7 @@
       { fields: [F('gam.ZnO', 'γ ZnO, solid', '', 0.05, 20), F('gam.PbO', 'γ PbO, liquid', '', 0.02, 20), F('gam.FeO', 'γ FeO, liquid', '', 0.05, 20), F('gam.FeO15', 'γ FeO₁.₅, hematite', '', 0.05, 20)] },
       { select: 'gamT', label: 'Temperature dependence', options: [['const', 'Constant γ (excess entropy only)'], ['regular', 'Regular solution, ln γ ∝ 1/T']] },
       { fields: [F('gam.Tref', 'γ values given at', '°C', 800, 1700, 10, 'regular')] },
-      { noteText: 'Single-cation mole fractions. The state after each oxide is its standard state. A table imported on the Database tab replaces these values for the oxides it covers.' }] }
+      { noteText: 'Single-cation mole fractions. The state after each oxide is its standard state. The defaults for ZnO and FeO₁.₅ and the default heating value were fitted to a reference calculation for the default case, not to plant data. A table imported on the Database tab replaces these values for the oxides it covers.' }] }
   ];
   const PRESETS = [
     ['Coal only', { 'coal.rate': 3300, 'al.rate': 0, 'blast.rate': 20000, 'blast.o2': 21 }],
@@ -56,7 +58,7 @@
   const inId = k => 'in-' + k.replace(/\./g, '-');
 
   /* ---------- persistence (per-viewer convenience only) ---------- */
-  const STORE = 'fuming-model-v2';
+  const STORE = 'fuming-model-v3';
   function load() { try { const s = JSON.parse(localStorage.getItem(STORE) || 'null'); return s && typeof s === 'object' ? s : null; } catch (e) { return null; } }
   function save() {
     try {
@@ -124,6 +126,7 @@
     for (const k in DEFAULTS) { const [a, b] = k.split('.'); o[a][b] = val(k); }
     o.slag.rate = state.mode === 'batch' ? o.slag.rateB : o.slag.rateC;
     o.coal.hhvAuto = state.hhvAuto;
+    o.coal.ashComp = { SiO2: o.coal.ashSiO2, Al2O3: o.coal.ashAl2O3, CaO: o.coal.ashCaO, Fe2O3: o.coal.ashFe2O3, MgO: o.coal.ashMgO };
     o.gamT = state.gamT; o.gamTref = o.gam.Tref; o.gamTable = gammaTable();
     return o;
   }

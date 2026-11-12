@@ -573,7 +573,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
             <li>ZnO is not in that file. It uses the CODATA values at 298.15 K (Δ<sub>f</sub>H° = −350.46 kJ/mol, S° = 43.65 J/(mol·K)) with C<sub>p</sub> = 45.338 + 7.289×10<sup>−3</sup>T − 5.732×10<sup>5</sup>T<sup>−2</sup> J/(mol·K). These are the data of the slag-fuming-model repository, which records agreement with SUPCRT16 zincite within 1.3 kJ.</li>
             <li>Slag standard states: liquid FeO, PbO and SiO<sub>2</sub>; solid ZnO, CaO, MgO, α-Al<sub>2</sub>O<sub>3</sub> and hematite. Activity coefficients must be given on the same basis. For ZnO, PbO, FeO and FeO<sub>1.5</sub> the standard states and the mole fraction basis are the same as in the slag-fuming-model repository.</li>
             <li>The JANAF FeO is the stoichiometric compound and is more stable than iron oxide in equilibrium with iron. Its Gibbs energy is raised by 5829.5 + 3.1911T J/mol, 10.7 kJ/mol at 1250 °C (correction of the slag-fuming-model repository, from the Calphad Fe–O description). An independent estimate from Fe + ½O<sub>2</sub> = FeO(s), ΔG° = −263 700 + 64.35T J, with the JANAF fusion data gives about 8.1 kJ/mol. The difference moves the FeO activity scale by a factor of about 1.2 and is absorbed by γ FeO.</li>
-            <li>Coal enters through its dry ultimate analysis and higher heating value. If you let the model estimate the heating value it uses the Channiwala and Parikh (2002) correlation. Ash is carried as 60 % SiO<sub>2</sub> and 40 % Al<sub>2</sub>O<sub>3</sub> and enters as crystalline oxides at 25 °C.</li>
+            <li>Coal enters through its dry ultimate analysis and higher heating value. If you let the model estimate the heating value it uses the Channiwala and Parikh (2002) correlation. Ash enters with its analysis (SiO<sub>2</sub>, Al<sub>2</sub>O<sub>3</sub>, CaO, Fe<sub>2</sub>O<sub>3</sub>, MgO) as crystalline oxides at 25 °C.</li>
             <li>Any of these records can be replaced from the Database tab: by file (JSON, NASA-7, NASA-9, Cantera YAML, Calphad TDB, CSV) or from a local server that reads TDB, Cantera or JSON data and can evaluate a slag solution model.</li>
           </ul>
           <h2>Solver</h2>
@@ -590,7 +590,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
           <h2>Limits you should keep in mind</h2>
           <ul>
             <li>The result is an equilibrium limit for one well-mixed zone. Richards, Brimacombe and Toop (1985) showed that a tuyere-blown fuming furnace behaves as a reduction zone around entrained coal and an oxidation zone in the tuyere gas column. The setting under Blast lets a share of the blast burn the bath gas without meeting the slag. Use it to calibrate against plant data. It is zero by default.</li>
-            <li>The built-in activity coefficients are placeholders that depend on temperature only. Zinc recovery is very sensitive to γ ZnO. Calibrate them, or link a database with a slag solution model and iterate.</li>
+            <li>The built-in activity coefficients are constants. γ ZnO (2.1) and γ FeO<sub>1.5</sub> (4.3), together with the default coal heating value (31.4 MJ/kg), were fitted to a reference calculation for the default case. They are not fitted to plant data. Zinc recovery is very sensitive to γ ZnO. Calibrate them, or link a database with a slag solution model and iterate.</li>
             <li>The slag enthalpy is that of the component oxides plus the excess enthalpy of the four oxides with activity coefficients. For a fayalite composition, the heat to take cold slag to liquid at 1250 °C is 1.36 MJ/kg in the model, against 1.54 MJ/kg from the measured data of Stebbins and Carmichael (1984). Heat demand for cold charge is therefore about 12 % low.</li>
             <li>Sulfur has no sulfide capacity in the slag. When the page reports CaS saturation, real slag would hold sulfur that the model sends to the gas.</li>
             <li>Liquidus, viscosity and kinetics are not modelled. The model will report a bath temperature at which the slag would not be liquid.</li>
@@ -1122,6 +1122,16 @@ function hhvEstimate(c) { // Channiwala and Parikh (2002), MJ/kg dry
   return 0.3491 * c.C + 1.1783 * c.H + 0.1005 * c.S - 0.1034 * c.O - 0.0151 * c.N - 0.0211 * c.ash;
 }
 const ASH_SIO2 = 0.6;
+/* ash composition, wt% of oxides; default 60 % SiO2 and 40 % Al2O3; normalised to 100 % */
+const ASH_KEYS = ['SiO2', 'Al2O3', 'CaO', 'Fe2O3', 'MgO'];
+function ashComposition(a) {
+  if (!a) return { f: { SiO2: ASH_SIO2, Al2O3: 1 - ASH_SIO2, CaO: 0, Fe2O3: 0, MgO: 0 }, sum: 100 };
+  let sum = 0; const v = {};
+  ASH_KEYS.forEach(k => { v[k] = Math.max(+a[k] || 0, 0); sum += v[k]; });
+  if (!(sum > 0)) return ashComposition(null);
+  const f = {}; ASH_KEYS.forEach(k => { f[k] = v[k] / sum; });
+  return { f, sum };
+}
 
 function elemOf(n) { const b = new Float64Array(NE); for (let i = 0; i < NS; i++) if (n[i] !== 0) for (let k = 0; k < NE; k++) b[k] += n[i] * SP[i].a[k]; return b; }
 function groupH298(n, out, act) { for (let i = 0; i < NS; i++) if (n[i] !== 0) { const gk = SP[i].group; if (gk !== 'none') out[gk] = (out[gk] || 0) + n[i] * hSp(i, T0, false, act); } return out; }
@@ -1157,7 +1167,10 @@ function buildFeeds(inp) {
   const nC = mDry * 10 * u.C / AW.C, nH = mDry * 10 * u.H / AW.H, nO = mDry * 10 * u.O / AW.O, nN = mDry * 10 * u.N / AW.N, nS = mDry * 10 * u.S / AW.S;
   const nW = mW * 1000 / (2 * AW.H + AW.O);
   const ashN = new Float64Array(NS);
-  ashN[SI.SiO2] = mDry * 10 * u.ash * ASH_SIO2 / MOX.SiO2; ashN[SI['AlO1.5']] = 2 * mDry * 10 * u.ash * (1 - ASH_SIO2) / MOX.Al2O3;
+  const ac = ashComposition(c.ashComp), gAsh = mDry * 10 * u.ash; // g of ash
+  if (c.ashComp && Math.abs(ac.sum - 100) > 0.5) warn.push('Ash analysis sums to ' + ac.sum.toFixed(1) + ' wt%. It was scaled to 100 %.');
+  ashN[SI.SiO2] = gAsh * ac.f.SiO2 / MOX.SiO2; ashN[SI['AlO1.5']] = 2 * gAsh * ac.f.Al2O3 / MOX.Al2O3;
+  ashN[SI.CaO] = gAsh * ac.f.CaO / MOX.CaO; ashN[SI.MgO] = gAsh * ac.f.MgO / MOX.MgO; ashN[SI['FeO1.5']] = 2 * gAsh * ac.f.Fe2O3 / MOX.Fe2O3;
   coal.b = elemOf(ashN);
   coal.b[EI.C] += nC; coal.b[EI.H] += nH + 2 * nW; coal.b[EI.O] += nO + nW; coal.b[EI.N] += nN; coal.b[EI.S] += nS;
   const hOrg = mDry * hhv * 1e6 + nC * props('CO2(g)', T0)[0] + nH / 2 * props('H2O(l)', T0)[0] + nS * props('SO2(g)', T0)[0];
@@ -1363,7 +1376,8 @@ function runBatch(inp) {
     znCum += v.zn; pbCum += v.pb;
     surplusCum += st.surplus; lossCum += st.loss; pcCum += st.pcLost;
     series.push({ t: (s + 1) * dt * 60, T, Zn: d.el.Zn, Pb: d.el.Pb, fe3: d.fe3, rate: v.zn * AW.Zn / 1000 / (dt * 60),
-      pO2: d.pO2, coco2: d.coco2, q: st.surplus / (dt * 3600) / 1e6, feMet: d.solids.Fe, slagMass: d.slagMass, pZn: d.pZn, rec: znIn > 0 ? 100 * znCum / znIn : 0 });
+      pO2: d.pO2, coco2: d.coco2, q: st.surplus / (dt * 3600) / 1e6, feMet: d.solids.Fe, slagMass: d.slagMass, pZn: d.pZn, rec: znIn > 0 ? 100 * znCum / znIn : 0,
+      wFeO: d.wt.FeO, wFe2O3: d.wt.Fe2O3 });
     nBath = st.bath; Hbath = enthalpy(nBath, T); last = { st, d };
   }
   const inList = [feeds.hot, feeds.cld, scaleStream(feeds.coal, total), scaleStream(feeds.al, total), scaleStream(feeds.bl, total)];
@@ -2077,12 +2091,13 @@ var FORMULA_NUM = {"minG":1,"gasmu":2,"slagmu":3,"puremu":4,"kkt":6,"pureact":7,
   const DEFAULTS = {
     'slag.rateB': 50, 'slag.rateC': 25, 'slag.T': 1250, 'slag.cold': 0, 'slag.Zn': 12, 'slag.Pb': 1.5, 'slag.Fe': 28, 'slag.fe3': 10,
     'slag.SiO2': 26, 'slag.CaO': 14, 'slag.Al2O3': 5, 'slag.MgO': 2,
-    'coal.rate': 3000, 'coal.moist': 2, 'coal.bypass': 0, 'coal.C': 75, 'coal.H': 4.5, 'coal.O': 7, 'coal.N': 1.5, 'coal.S': 0.8, 'coal.ash': 11.2, 'coal.hhv': 30.6,
-    'al.rate': 300, 'al.metal': 95, 'blast.rate': 18000, 'blast.o2': 21, 'blast.T': 25, 'blast.pc': 0, 'blast.hte': 100,
-    'op.T': 1250, 'op.loss': 6, 'op.P': 1, 'batch.time': 120, 'batch.dt': 2,
-    'gam.ZnO': 2.0, 'gam.PbO': 0.3, 'gam.FeO': 1.0, 'gam.FeO15': 1.5, 'gam.Tref': 1250
+    'coal.rate': 3000, 'coal.moist': 2, 'coal.bypass': 0, 'coal.C': 75, 'coal.H': 4.5, 'coal.O': 7, 'coal.N': 1.5, 'coal.S': 0.8, 'coal.ash': 11.2, 'coal.hhv': 31.4,
+    'coal.ashSiO2': 60, 'coal.ashAl2O3': 30, 'coal.ashCaO': 3.5, 'coal.ashFe2O3': 5, 'coal.ashMgO': 1.5,
+    'al.rate': 300, 'al.metal': 100, 'blast.rate': 18000, 'blast.o2': 21, 'blast.T': 25, 'blast.pc': 0, 'blast.hte': 100,
+    'op.T': 1250, 'op.loss': 6, 'op.P': 1, 'batch.time': 180, 'batch.dt': 2,
+    'gam.ZnO': 2.1, 'gam.PbO': 0.3, 'gam.FeO': 1.0, 'gam.FeO15': 4.3, 'gam.Tref': 1250
   };
-  const state = { mode: 'batch', thermal: 'auto', hhvAuto: true, tab: 'heat', gamT: 'const' };
+  const state = { mode: 'batch', thermal: 'auto', hhvAuto: false, tab: 'heat', gamT: 'const' };
   const TABS = ['heat', 'eq', 'cycle', 'furnace', 'sweep', 'db', 'formulas', 'model'];
   // [key, label, unit, min, max, step, show]
   const F = (k, label, unit, min, max, step, show) => ({ k, label, unit, min, max, step: step || 'any', show });
@@ -2096,6 +2111,7 @@ var FORMULA_NUM = {"minG":1,"gasmu":2,"slagmu":3,"puremu":4,"kkt":6,"pureact":7,
     { id: 'coal', title: 'Coal', open: true, parts: [
       { fields: [F('coal.rate', 'Rate', 'kg/h', 0, 50000, 50), F('coal.moist', 'Moisture', '%', 0, 40)] },
       { sub: 'Ultimate analysis, dry wt%', cls: 'three', fields: [F('coal.C', 'C', '', 0, 100), F('coal.H', 'H', '', 0, 20), F('coal.O', 'O', '', 0, 40), F('coal.N', 'N', '', 0, 10), F('coal.S', 'S', '', 0, 10), F('coal.ash', 'Ash', '', 0, 60)] },
+      { sub: 'Ash analysis, wt%', cls: 'three', fields: [F('coal.ashSiO2', 'SiO₂', '', 0, 100), F('coal.ashAl2O3', 'Al₂O₃', '', 0, 100), F('coal.ashCaO', 'CaO', '', 0, 100), F('coal.ashFe2O3', 'Fe₂O₃', '', 0, 100), F('coal.ashMgO', 'MgO', '', 0, 100)] },
       { check: 'hhvAuto', label: 'Estimate the heating value from the analysis' },
       { fields: [F('coal.hhv', 'HHV, dry', 'MJ/kg', 5, 45), F('coal.bypass', 'Leaves unreacted', '%', 0, 90)] },
       { note: 'note-coal' }] },
@@ -2113,7 +2129,7 @@ var FORMULA_NUM = {"minG":1,"gasmu":2,"slagmu":3,"puremu":4,"kkt":6,"pureact":7,
       { fields: [F('gam.ZnO', 'γ ZnO, solid', '', 0.05, 20), F('gam.PbO', 'γ PbO, liquid', '', 0.02, 20), F('gam.FeO', 'γ FeO, liquid', '', 0.05, 20), F('gam.FeO15', 'γ FeO₁.₅, hematite', '', 0.05, 20)] },
       { select: 'gamT', label: 'Temperature dependence', options: [['const', 'Constant γ (excess entropy only)'], ['regular', 'Regular solution, ln γ ∝ 1/T']] },
       { fields: [F('gam.Tref', 'γ values given at', '°C', 800, 1700, 10, 'regular')] },
-      { noteText: 'Single-cation mole fractions. The state after each oxide is its standard state. A table imported on the Database tab replaces these values for the oxides it covers.' }] }
+      { noteText: 'Single-cation mole fractions. The state after each oxide is its standard state. The defaults for ZnO and FeO₁.₅ and the default heating value were fitted to a reference calculation for the default case, not to plant data. A table imported on the Database tab replaces these values for the oxides it covers.' }] }
   ];
   const PRESETS = [
     ['Coal only', { 'coal.rate': 3300, 'al.rate': 0, 'blast.rate': 20000, 'blast.o2': 21 }],
@@ -2124,7 +2140,7 @@ var FORMULA_NUM = {"minG":1,"gasmu":2,"slagmu":3,"puremu":4,"kkt":6,"pureact":7,
   const inId = k => 'in-' + k.replace(/\./g, '-');
 
   /* ---------- persistence (per-viewer convenience only) ---------- */
-  const STORE = 'fuming-model-v2';
+  const STORE = 'fuming-model-v3';
   function load() { try { const s = JSON.parse(localStorage.getItem(STORE) || 'null'); return s && typeof s === 'object' ? s : null; } catch (e) { return null; } }
   function save() {
     try {
@@ -2192,6 +2208,7 @@ var FORMULA_NUM = {"minG":1,"gasmu":2,"slagmu":3,"puremu":4,"kkt":6,"pureact":7,
     for (const k in DEFAULTS) { const [a, b] = k.split('.'); o[a][b] = val(k); }
     o.slag.rate = state.mode === 'batch' ? o.slag.rateB : o.slag.rateC;
     o.coal.hhvAuto = state.hhvAuto;
+    o.coal.ashComp = { SiO2: o.coal.ashSiO2, Al2O3: o.coal.ashAl2O3, CaO: o.coal.ashCaO, Fe2O3: o.coal.ashFe2O3, MgO: o.coal.ashMgO };
     o.gamT = state.gamT; o.gamTref = o.gam.Tref; o.gamTable = gammaTable();
     return o;
   }

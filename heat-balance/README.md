@@ -35,7 +35,7 @@ The model in the repository root covers more phases and elements (alloy, bullion
 - NASA Glenn seven-coefficient polynomials (McBride, Gordon and Reno, NASA TM-4513, 1993), read from the Cantera 3.2 data files. They refer to 1 bar; the tabulated entropies match the 1-bar JANAF values. Cantera reads these files as 1 atm data because they do not state a pressure. Outside a fitted range the heat capacity is held constant; at bath temperature this applies to liquid FeO (fitted from 1650 K) and liquid SiO₂ (from 1696 K).
 - ZnO(s): CODATA values at 298.15 K with Cp = 45.338 + 7.289×10⁻³ T − 5.732×10⁵ T⁻² J/(mol·K). Same data as the root model.
 - FeO(l): JANAF FeO(l) with G raised by 5829.5 + 3.1911 T J/mol, so that the activity refers to liquid iron oxide in equilibrium with iron. Same correction as the root model. An independent estimate from Fe + ½O₂ = FeO(s), ΔG° = −263 700 + 64.35 T J, with the JANAF fusion data gives about 8.1 kJ/mol at 1250 °C against 10.7 kJ/mol here. The difference is absorbed by γ FeO.
-- Coal: dry ultimate analysis and higher heating value; Channiwala and Parikh (2002) if estimated. Ash is carried as 60 % SiO₂ and 40 % Al₂O₃ and enters as crystalline oxides at 25 °C.
+- Coal: dry ultimate analysis and higher heating value; Channiwala and Parikh (2002) if estimated. Ash is given by its analysis (SiO₂, Al₂O₃, CaO, Fe₂O₃, MgO; 60/40 SiO₂/Al₂O₃ if none is given) and enters as crystalline oxides at 25 °C.
 
 ## Linking an external database
 
@@ -96,7 +96,7 @@ These checks cover the numerics and the data handling. The model has not been va
 ## Limits
 
 - The result is an equilibrium limit for one well-mixed zone. Tuyere-blown furnaces fume faster than this at the same coal and air rates (Richards, Brimacombe and Toop, Metall. Trans. B, 1985). The two-zone setting can be used to calibrate against plant data.
-- The built-in activity coefficients are placeholders that depend on temperature only. Zinc recovery is very sensitive to γ ZnO. Calibrate them or link a database with a slag model.
+- The built-in activity coefficients are constants. γ ZnO = 2.1 and γ FeO₁.₅ = 4.3, with a coal heating value of 31.4 MJ/kg, were fitted to a reference calculation of the default case (180 min batch). Against that reference the fit reproduces the zinc rate within 2.2 kg/min (rms), Fe³⁺/Fe within 0.005, log pO₂ within 0.14 and the bath temperature within 12 °C. They are not fitted to plant data. Zinc recovery is very sensitive to γ ZnO. Calibrate them or link a database with a slag model.
 - The slag enthalpy is that of the component oxides plus the excess enthalpy of the four oxides with activity coefficients. For a fayalite composition the heat to take cold slag to liquid at 1250 °C is 1.36 MJ/kg in the model against 1.54 MJ/kg from the data of Stebbins and Carmichael (Am. Mineral. 69, 1984), so the heat demand of cold charge is about 12 % low.
 - Sulfur has no sulfide capacity in the slag. Liquidus, viscosity and kinetics are not modelled. Metallic iron is pure iron and the matte is pure FeS.
 

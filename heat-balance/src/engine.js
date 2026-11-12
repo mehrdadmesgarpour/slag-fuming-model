@@ -514,6 +514,16 @@ function hhvEstimate(c) { // Channiwala and Parikh (2002), MJ/kg dry
   return 0.3491 * c.C + 1.1783 * c.H + 0.1005 * c.S - 0.1034 * c.O - 0.0151 * c.N - 0.0211 * c.ash;
 }
 const ASH_SIO2 = 0.6;
+/* ash composition, wt% of oxides; default 60 % SiO2 and 40 % Al2O3; normalised to 100 % */
+const ASH_KEYS = ['SiO2', 'Al2O3', 'CaO', 'Fe2O3', 'MgO'];
+function ashComposition(a) {
+  if (!a) return { f: { SiO2: ASH_SIO2, Al2O3: 1 - ASH_SIO2, CaO: 0, Fe2O3: 0, MgO: 0 }, sum: 100 };
+  let sum = 0; const v = {};
+  ASH_KEYS.forEach(k => { v[k] = Math.max(+a[k] || 0, 0); sum += v[k]; });
+  if (!(sum > 0)) return ashComposition(null);
+  const f = {}; ASH_KEYS.forEach(k => { f[k] = v[k] / sum; });
+  return { f, sum };
+}
 
 function elemOf(n) { const b = new Float64Array(NE); for (let i = 0; i < NS; i++) if (n[i] !== 0) for (let k = 0; k < NE; k++) b[k] += n[i] * SP[i].a[k]; return b; }
 function groupH298(n, out, act) { for (let i = 0; i < NS; i++) if (n[i] !== 0) { const gk = SP[i].group; if (gk !== 'none') out[gk] = (out[gk] || 0) + n[i] * hSp(i, T0, false, act); } return out; }
@@ -549,7 +559,10 @@ function buildFeeds(inp) {
   const nC = mDry * 10 * u.C / AW.C, nH = mDry * 10 * u.H / AW.H, nO = mDry * 10 * u.O / AW.O, nN = mDry * 10 * u.N / AW.N, nS = mDry * 10 * u.S / AW.S;
   const nW = mW * 1000 / (2 * AW.H + AW.O);
   const ashN = new Float64Array(NS);
-  ashN[SI.SiO2] = mDry * 10 * u.ash * ASH_SIO2 / MOX.SiO2; ashN[SI['AlO1.5']] = 2 * mDry * 10 * u.ash * (1 - ASH_SIO2) / MOX.Al2O3;
+  const ac = ashComposition(c.ashComp), gAsh = mDry * 10 * u.ash; // g of ash
+  if (c.ashComp && Math.abs(ac.sum - 100) > 0.5) warn.push('Ash analysis sums to ' + ac.sum.toFixed(1) + ' wt%. It was scaled to 100 %.');
+  ashN[SI.SiO2] = gAsh * ac.f.SiO2 / MOX.SiO2; ashN[SI['AlO1.5']] = 2 * gAsh * ac.f.Al2O3 / MOX.Al2O3;
+  ashN[SI.CaO] = gAsh * ac.f.CaO / MOX.CaO; ashN[SI.MgO] = gAsh * ac.f.MgO / MOX.MgO; ashN[SI['FeO1.5']] = 2 * gAsh * ac.f.Fe2O3 / MOX.Fe2O3;
   coal.b = elemOf(ashN);
   coal.b[EI.C] += nC; coal.b[EI.H] += nH + 2 * nW; coal.b[EI.O] += nO + nW; coal.b[EI.N] += nN; coal.b[EI.S] += nS;
   const hOrg = mDry * hhv * 1e6 + nC * props('CO2(g)', T0)[0] + nH / 2 * props('H2O(l)', T0)[0] + nS * props('SO2(g)', T0)[0];
@@ -755,7 +768,8 @@ function runBatch(inp) {
     znCum += v.zn; pbCum += v.pb;
     surplusCum += st.surplus; lossCum += st.loss; pcCum += st.pcLost;
     series.push({ t: (s + 1) * dt * 60, T, Zn: d.el.Zn, Pb: d.el.Pb, fe3: d.fe3, rate: v.zn * AW.Zn / 1000 / (dt * 60),
-      pO2: d.pO2, coco2: d.coco2, q: st.surplus / (dt * 3600) / 1e6, feMet: d.solids.Fe, slagMass: d.slagMass, pZn: d.pZn, rec: znIn > 0 ? 100 * znCum / znIn : 0 });
+      pO2: d.pO2, coco2: d.coco2, q: st.surplus / (dt * 3600) / 1e6, feMet: d.solids.Fe, slagMass: d.slagMass, pZn: d.pZn, rec: znIn > 0 ? 100 * znCum / znIn : 0,
+      wFeO: d.wt.FeO, wFe2O3: d.wt.Fe2O3 });
     nBath = st.bath; Hbath = enthalpy(nBath, T); last = { st, d };
   }
   const inList = [feeds.hot, feeds.cld, scaleStream(feeds.coal, total), scaleStream(feeds.al, total), scaleStream(feeds.bl, total)];
