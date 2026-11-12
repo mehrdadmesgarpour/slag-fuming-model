@@ -251,6 +251,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .insp .scroll.tall { max-height: 360px; overflow: auto; }
 .insp tr.evt td { color: var(--accent); font-size: 12px; }
 @media (prefers-reduced-motion: no-preference) { .bar { transition: width 0.18s ease; } }
+
+#upd-table td, #upd-table th { vertical-align: top; text-align: left; padding-right: 16px; }
+#upd-table td.num { white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -551,6 +554,19 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
       <section class="panel" id="tab-model" role="tabpanel" aria-labelledby="tabbtn-model" hidden>
         <div class="prose">
+          <h2>Model updates, 12 November 2026</h2>
+          <p>The default case is now the 180 min batch used for a comparison with a reference calculation from another model. Three parameters were fitted to its curves of bath temperature, zinc evaporation rate, Fe<sup>3+</sup>/Fe and log pO<sub>2</sub>. The solver, the heat balance and the thermodynamic data are unchanged.</p>
+          <div class="scroll"><table id="upd-table">
+            <thead><tr><th>Part</th><th>Before</th><th>Now</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td>γ FeO<sub>1.5</sub> (Slag activity coefficients)</td><td class="num">1.5</td><td class="num">4.9</td><td>Ferric share was about three times the reference at the same pO<sub>2</sub>.</td></tr>
+              <tr><td>γ ZnO (Slag activity coefficients)</td><td class="num">2.0</td><td class="num">3.0</td><td>Keeps the zinc rate once the bath is less reduced.</td></tr>
+              <tr><td>Coal leaving unreacted (Coal)</td><td class="num">0 %</td><td class="num">3.8 %</td><td>The reference gas is more oxidised and its bath cooler than the full coal rate allows.</td></tr>
+              <tr><td>Coal ash (Coal)</td><td>fixed 60 % SiO<sub>2</sub>, 40 % Al<sub>2</sub>O<sub>3</sub></td><td>ash analysis as input</td><td>Needed to enter a given coal.</td></tr>
+              <tr><td>Default case (Aluminium, Furnace)</td><td>95 % Al, 120 min</td><td>100 % Al, 180 min</td><td>Same inputs as the reference.</td></tr>
+            </tbody>
+          </table></div>
+          <p>Mismatch with the reference over the cycle (rms), before and now: bath temperature 20 and 4.7 °C; zinc evaporation rate 9.4 and 1.3 kg/min; Fe<sup>3+</sup>/Fe 0.093 and 0.004; log pO<sub>2</sub> 0.55 and 0.02. The fit is to another model, not to plant measurements.</p>
           <h2>What the model does</h2>
           <p>For a given set of feeds the model finds the phase assemblage with the lowest total Gibbs energy at the bath temperature and pressure, subject to the element balance. The enthalpy of that assemblage, compared with the enthalpy of the feeds, gives the heat balance. In heat-balanced mode the bath temperature is the one at which the two agree after the heat loss is taken out.</p>
           <ul>
@@ -590,7 +606,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
           <h2>Limits you should keep in mind</h2>
           <ul>
             <li>The result is an equilibrium limit for one well-mixed zone. Richards, Brimacombe and Toop (1985) showed that a tuyere-blown fuming furnace behaves as a reduction zone around entrained coal and an oxidation zone in the tuyere gas column. The setting under Blast lets a share of the blast burn the bath gas without meeting the slag. Use it to calibrate against plant data. It is zero by default.</li>
-            <li>The built-in activity coefficients are constants. γ ZnO (2.1) and γ FeO<sub>1.5</sub> (4.3), together with the default coal heating value (31.4 MJ/kg), were fitted to a reference calculation for the default case. They are not fitted to plant data. Zinc recovery is very sensitive to γ ZnO. Calibrate them, or link a database with a slag solution model and iterate.</li>
+            <li>The built-in activity coefficients are constants. γ ZnO (3.0) and γ FeO<sub>1.5</sub> (4.9), together with a default of 3.8 % of the coal leaving unreacted, were fitted to a reference calculation of the default case. They are not fitted to plant data, and constants cannot follow changes in slag composition. Link a database with a slag solution model for that.</li>
             <li>The slag enthalpy is that of the component oxides plus the excess enthalpy of the four oxides with activity coefficients. For a fayalite composition, the heat to take cold slag to liquid at 1250 °C is 1.36 MJ/kg in the model, against 1.54 MJ/kg from the measured data of Stebbins and Carmichael (1984). Heat demand for cold charge is therefore about 12 % low.</li>
             <li>Sulfur has no sulfide capacity in the slag. When the page reports CaS saturation, real slag would hold sulfur that the model sends to the gas.</li>
             <li>Liquidus, viscosity and kinetics are not modelled. The model will report a bath temperature at which the slag would not be liquid.</li>
@@ -2091,13 +2107,13 @@ var FORMULA_NUM = {"minG":1,"gasmu":2,"slagmu":3,"puremu":4,"kkt":6,"pureact":7,
   const DEFAULTS = {
     'slag.rateB': 50, 'slag.rateC': 25, 'slag.T': 1250, 'slag.cold': 0, 'slag.Zn': 12, 'slag.Pb': 1.5, 'slag.Fe': 28, 'slag.fe3': 10,
     'slag.SiO2': 26, 'slag.CaO': 14, 'slag.Al2O3': 5, 'slag.MgO': 2,
-    'coal.rate': 3000, 'coal.moist': 2, 'coal.bypass': 0, 'coal.C': 75, 'coal.H': 4.5, 'coal.O': 7, 'coal.N': 1.5, 'coal.S': 0.8, 'coal.ash': 11.2, 'coal.hhv': 31.4,
+    'coal.rate': 3000, 'coal.moist': 2, 'coal.bypass': 3.8, 'coal.C': 75, 'coal.H': 4.5, 'coal.O': 7, 'coal.N': 1.5, 'coal.S': 0.8, 'coal.ash': 11.2, 'coal.hhv': 30.6,
     'coal.ashSiO2': 60, 'coal.ashAl2O3': 30, 'coal.ashCaO': 3.5, 'coal.ashFe2O3': 5, 'coal.ashMgO': 1.5,
     'al.rate': 300, 'al.metal': 100, 'blast.rate': 18000, 'blast.o2': 21, 'blast.T': 25, 'blast.pc': 0, 'blast.hte': 100,
     'op.T': 1250, 'op.loss': 6, 'op.P': 1, 'batch.time': 180, 'batch.dt': 2,
-    'gam.ZnO': 2.1, 'gam.PbO': 0.3, 'gam.FeO': 1.0, 'gam.FeO15': 4.3, 'gam.Tref': 1250
+    'gam.ZnO': 3.0, 'gam.PbO': 0.3, 'gam.FeO': 1.0, 'gam.FeO15': 4.9, 'gam.Tref': 1250
   };
-  const state = { mode: 'batch', thermal: 'auto', hhvAuto: false, tab: 'heat', gamT: 'const' };
+  const state = { mode: 'batch', thermal: 'auto', hhvAuto: true, tab: 'heat', gamT: 'const' };
   const TABS = ['heat', 'eq', 'cycle', 'furnace', 'sweep', 'db', 'formulas', 'model'];
   // [key, label, unit, min, max, step, show]
   const F = (k, label, unit, min, max, step, show) => ({ k, label, unit, min, max, step: step || 'any', show });
@@ -2129,7 +2145,7 @@ var FORMULA_NUM = {"minG":1,"gasmu":2,"slagmu":3,"puremu":4,"kkt":6,"pureact":7,
       { fields: [F('gam.ZnO', 'γ ZnO, solid', '', 0.05, 20), F('gam.PbO', 'γ PbO, liquid', '', 0.02, 20), F('gam.FeO', 'γ FeO, liquid', '', 0.05, 20), F('gam.FeO15', 'γ FeO₁.₅, hematite', '', 0.05, 20)] },
       { select: 'gamT', label: 'Temperature dependence', options: [['const', 'Constant γ (excess entropy only)'], ['regular', 'Regular solution, ln γ ∝ 1/T']] },
       { fields: [F('gam.Tref', 'γ values given at', '°C', 800, 1700, 10, 'regular')] },
-      { noteText: 'Single-cation mole fractions. The state after each oxide is its standard state. The defaults for ZnO and FeO₁.₅ and the default heating value were fitted to a reference calculation for the default case, not to plant data. A table imported on the Database tab replaces these values for the oxides it covers.' }] }
+      { noteText: 'Single-cation mole fractions. The state after each oxide is its standard state. The defaults for ZnO (3.0) and FeO₁.₅ (4.9) were fitted to a reference calculation of the default case, together with 3.8 % of the coal leaving unreacted. They are not fitted to plant data. A table imported on the Database tab replaces these values for the oxides it covers.' }] }
   ];
   const PRESETS = [
     ['Coal only', { 'coal.rate': 3300, 'al.rate': 0, 'blast.rate': 20000, 'blast.o2': 21 }],
@@ -2140,7 +2156,7 @@ var FORMULA_NUM = {"minG":1,"gasmu":2,"slagmu":3,"puremu":4,"kkt":6,"pureact":7,
   const inId = k => 'in-' + k.replace(/\./g, '-');
 
   /* ---------- persistence (per-viewer convenience only) ---------- */
-  const STORE = 'fuming-model-v3';
+  const STORE = 'fuming-model-v4';
   function load() { try { const s = JSON.parse(localStorage.getItem(STORE) || 'null'); return s && typeof s === 'object' ? s : null; } catch (e) { return null; } }
   function save() {
     try {

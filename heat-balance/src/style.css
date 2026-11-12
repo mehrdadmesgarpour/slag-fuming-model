@@ -241,3 +241,6 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .insp .scroll.tall { max-height: 360px; overflow: auto; }
 .insp tr.evt td { color: var(--accent); font-size: 12px; }
 @media (prefers-reduced-motion: no-preference) { .bar { transition: width 0.18s ease; } }
+
+#upd-table td, #upd-table th { vertical-align: top; text-align: left; padding-right: 16px; }
+#upd-table td.num { white-space: nowrap; }
